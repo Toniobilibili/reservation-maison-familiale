@@ -23,50 +23,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const session = supabase.auth.getSession().then(({ data }) => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
       const sessionUser = data.session?.user;
+
       if (sessionUser) {
-        setUser({ id: sessionUser.id, email: sessionUser.email });
+        setUser({
+          id: sessionUser.id,
+          email: sessionUser.email ?? null,
+        });
+        return;
       }
+
+      setLoading(false);
+    };
+
+    init();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email ?? null,
+        });
+        return;
+      }
+
+      setUser(null);
+      setProfile(null);
       setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_, session) => {
-      if (session?.user) {
-        setUser({ id: session.user.id, email: session.user.email });
-      } else {
-        setUser(null);
-        setProfile(null);
-      }
-    });
-
     return () => {
-      listener?.subscription.unsubscribe();
+      authListener?.subscription.unsubscribe();
     };
   }, []);
 
   useEffect(() => {
-    async function loadProfile() {
-      if (!user) {
-        setProfile(null);
-        return;
-      }
+    if (!user) {
+      setProfile(null);
+      setLoading(false);
+      return;
+    }
+
+    const loadProfile = async () => {
+      setLoading(true);
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, role, created_at')
         .eq('id', user.id)
         .single();
+
       if (!error && data) {
         setProfile(data as Profile);
       } else {
         setProfile(null);
       }
-      setLoading(false);
-    }
 
-    if (user) {
-      loadProfile();
-    }
+      setLoading(false);
+    };
+
+    loadProfile();
   }, [user]);
 
   const value = useMemo(
