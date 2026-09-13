@@ -5,6 +5,7 @@
 :root {
   color-scheme: light;
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f8fafc;
 }
 
 html {
@@ -15,6 +16,9 @@ body {
   margin: 0;
   min-height: 100vh;
   background: #f8fafc;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
 }
 
 * {
@@ -32,9 +36,25 @@ input,
 textarea,
 select {
   outline: none;
+  min-height: 2.75rem;
+}
+
+button,
+a,
+select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid rgba(91, 94, 242, 0.35);
+  outline-offset: 2px;
 }
 
 ::selection {
   background: #5b5ef2;
   color: #ffffff;
+}
+
+.safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }

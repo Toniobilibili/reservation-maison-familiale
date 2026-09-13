@@ -6,8 +6,16 @@ import { ProtectedPage } from '@/components/ProtectedPage';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
 import { ReservationCard } from '@/components/ReservationCard';
+import { families, formatDate, getFamilyStyle } from '@/lib/families';
+import { defaultFamilyPeriods, formatTime, getPeriodForDate, isPeriodEnd, isPeriodStart } from '@/lib/planning';
+import type { FamilyPeriod, FamilySetting } from '@/lib/types';
 
 const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+
+function parseDateKey(dateKey: string) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
 
 function getDateKey(date: Date) {
   const year = date.getFullYear();
@@ -37,11 +45,40 @@ function getCalendarGrid(year: number, month: number) {
   return weeks;
 }
 
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function getEasterSunday(year: number) {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31) - 1;
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month, day);
+}
+
 function holidaysForYear(year: number) {
+  const easterSunday = getEasterSunday(year);
+
   return {
     [`${year}-01-01`]: "Jour de l'an",
+    [getDateKey(addDays(easterSunday, 1))]: 'Lundi de Pâques',
     [`${year}-05-01`]: 'Fête du Travail',
     [`${year}-05-08`]: 'Victoire 1945',
+    [getDateKey(addDays(easterSunday, 39))]: 'Ascension',
+    [getDateKey(addDays(easterSunday, 50))]: 'Lundi de Pentecôte',
     [`${year}-07-14`]: 'Fête nationale',
     [`${year}-08-15`]: 'Assomption',
     [`${year}-11-01`]: 'Toussaint',
@@ -55,43 +92,62 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(true);
   const [monthIndex, setMonthIndex] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
-
-  const displayReservations = reservations;
+  const [familyPeriods, setFamilyPeriods] = useState<FamilyPeriod[]>(defaultFamilyPeriods);
+  const [familySettings, setFamilySettings] = useState<FamilySetting[]>([]);
 
   useEffect(() => {
     async function loadReservations() {
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, start_date, end_date, status, guests, comment, user_id, profiles(full_name)')
+        .select('id, start_date, end_date, start_time, end_time, reservation_type, status, guests, comment, user_id, created_at, updated_at, profiles(full_name, first_name, family)')
         .order('start_date', { ascending: true });
 
       if (data) {
         setReservations(
-          data.map((item: any) => ({
-            ...item,
-            user_full_name: item.profiles?.full_name ?? 'Famille',
-          }))
+          data.map((item: any) => {
+            const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+
+            return {
+              ...item,
+              user_full_name: profile?.full_name ?? 'Famille',
+              user_first_name: profile?.first_name ?? undefined,
+              user_family: profile?.family ?? undefined,
+            };
+          })
         );
       }
       if (error) {
         console.error(error.message);
       }
+
+      const { data: periodData } = await supabase
+        .from('family_periods')
+        .select('id, year, family, label, start_date, end_date, created_at, updated_at')
+        .eq('year', year)
+        .order('start_date', { ascending: true });
+
+      if (periodData && periodData.length > 0) {
+        setFamilyPeriods(periodData as FamilyPeriod[]);
+      }
+      const { data: settingData } = await supabase.from('family_settings').select('family, label, bg_color, border_color, text_color, updated_at').order('family');
+      if (settingData) setFamilySettings(settingData as FamilySetting[]);
       setLoading(false);
     }
     loadReservations();
-  }, []);
+  }, [year]);
 
   const holidays = useMemo(() => holidaysForYear(year), [year]);
 
   const reservedMap = useMemo(() => {
     const map: Record<string, Reservation[]> = {};
 
-    displayReservations.forEach((reservation) => {
+    reservations.forEach((reservation) => {
       if (reservation.status === 'rejected') {
         return;
       }
-      const current = new Date(reservation.start_date);
-      const end = new Date(reservation.end_date);
+
+      const current = parseDateKey(reservation.start_date);
+      const end = parseDateKey(reservation.end_date);
 
       while (current <= end) {
         const key = getDateKey(current);
@@ -102,9 +158,25 @@ export default function CalendarPage() {
     });
 
     return map;
-  }, [displayReservations]);
+  }, [reservations]);
 
   const grid = useMemo(() => getCalendarGrid(year, monthIndex), [monthIndex, year]);
+  const monthStart = useMemo(() => new Date(year, monthIndex, 1), [monthIndex, year]);
+  const monthEnd = useMemo(() => new Date(year, monthIndex + 1, 0), [monthIndex, year]);
+
+  const monthReservations = useMemo(
+    () =>
+      reservations.filter((reservation) => {
+        if (reservation.status === 'rejected') {
+          return false;
+        }
+
+        const reservationStart = parseDateKey(reservation.start_date);
+        const reservationEnd = parseDateKey(reservation.end_date);
+        return reservationStart <= monthEnd && reservationEnd >= monthStart;
+      }),
+    [monthEnd, monthStart, reservations]
+  );
 
   function goPreviousMonth() {
     if (monthIndex === 0) {
@@ -129,60 +201,46 @@ export default function CalendarPage() {
     year: 'numeric',
   });
 
-  const todaysReservations = displayReservations.filter((reservation) => reservation.status !== 'rejected');
-
   return (
     <ProtectedPage>
       <AppShell title="Calendrier">
-        <div className="space-y-6">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <button onClick={goPreviousMonth} className="rounded-2xl border border-slate-200 bg-white p-3 text-slate-700 transition hover:bg-slate-50">
-                ←
-              </button>
-              <h2 className="text-lg font-semibold text-slate-900">{monthLabel}</h2>
-              <button onClick={goNextMonth} className="rounded-2xl border border-slate-200 bg-white p-3 text-slate-700 transition hover:bg-slate-50">
-                →
-              </button>
-              </div>
-            </div>
+        <div className="space-y-5 sm:space-y-6">
+          <div className="flex items-center justify-between gap-3">
+            <button onClick={goPreviousMonth} className="h-11 w-11 rounded-2xl border border-slate-200 bg-white text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+              ←
+            </button>
+            <h2 className="min-w-0 flex-1 text-center text-lg font-semibold capitalize text-slate-900 sm:text-xl">{monthLabel}</h2>
+            <button onClick={goNextMonth} className="h-11 w-11 rounded-2xl border border-slate-200 bg-white text-lg font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+              →
+            </button>
+          </div>
 
-          <section className="space-y-4">
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-900">Prochaines réservations</h3>
-              <p className="mt-2 text-sm text-slate-600">Détails des réservations saisies.</p>
-            </div>
-            {loading ? (
-              <p className="text-sm text-slate-600">Chargement du calendrier...</p>
-            ) : todaysReservations.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600 shadow-soft">
-                Aucune réservation pour le moment.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {todaysReservations.map((reservation) => (
-                  <ReservationCard key={reservation.id} reservation={reservation} />
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-soft">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-slate-900">{monthLabel}</h3>
-              <div className="flex items-center gap-2 text-sm text-slate-600">
+          <section className="-mx-1 rounded-3xl border border-slate-200 bg-white p-2 shadow-soft sm:mx-0 sm:p-5">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="text-lg font-semibold capitalize text-slate-900 sm:text-xl">{monthLabel}</h3>
+              <div className="flex flex-wrap gap-2 text-sm text-slate-600">
+                {families.map((family) => {
+                  const familyStyle = getFamilyStyle(family);
+                  const familySetting = familySettings.find((setting) => setting.family === family);
+                  return (
+                    <span key={family} className={`rounded-full px-3 py-1 ${familyStyle.badge}`} style={familySetting ? { backgroundColor: familySetting.border_color, color: familySetting.bg_color } : undefined}>
+                      {familyStyle.label}
+                    </span>
+                  );
+                })}
                 <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Férié</span>
-                <span className="rounded-full bg-rose-100 px-3 py-1 text-rose-800">Réservé</span>
               </div>
             </div>
-            <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold uppercase text-slate-500">
+
+            <div className="grid grid-cols-7 gap-px text-center text-[10px] font-semibold uppercase text-slate-500 sm:gap-1 sm:text-xs">
               {weekdayNames.map((name) => (
-                <div key={name} className="py-1 text-[10px] sm:py-2 sm:text-xs">
+                <div key={name} className="py-1 sm:py-2">
                   {name}
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7 gap-1">
+
+            <div className="grid grid-cols-7 gap-px sm:gap-1">
               {grid.map((week, weekIndex) =>
                 week.map((day) => {
                   const key = getDateKey(day);
@@ -190,35 +248,45 @@ export default function CalendarPage() {
                   const holidayLabel = holidays[key];
                   const dayReservations = reservedMap[key];
                   const isReserved = Boolean(dayReservations?.length);
-                  const reservedLabel = isReserved ? dayReservations[0].user_full_name : null;
+                  const familyPeriod = getPeriodForDate(familyPeriods, key);
+                  const periodStyle = getFamilyStyle(familyPeriod?.family);
+                  const periodSetting = familySettings.find((setting) => setting.family === familyPeriod?.family);
+                  const periodStart = isPeriodStart(familyPeriod, key);
+                  const periodEnd = isPeriodEnd(familyPeriod, key);
 
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
-                      className={`min-h-[60px] rounded-2xl border p-2 text-left transition sm:min-h-[88px] sm:rounded-3xl sm:p-3 ${
-                        isReserved
-                          ? 'border-rose-300 bg-rose-50 text-slate-900'
+                      className={`min-h-[82px] border p-1 text-left transition sm:min-h-[122px] sm:p-2 ${
+                        familyPeriod
+                          ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'} border-y-4`
                           : holidayLabel
-                          ? 'border-emerald-300 bg-emerald-50 text-slate-900'
-                          : 'border-slate-200 bg-white text-slate-700'
-                      } ${isCurrentMonth ? '' : 'opacity-50'}`}
+                          ? 'rounded-xl border-emerald-300 bg-emerald-50 text-slate-900'
+                          : 'rounded-xl border-slate-200 bg-white text-slate-700'
+                      } ${isCurrentMonth ? '' : 'opacity-40'}`}
+                      style={periodSetting ? { backgroundColor: periodSetting.bg_color, borderColor: periodSetting.border_color, color: periodSetting.text_color } : undefined}
                     >
                       <div className="flex items-start justify-between gap-1">
                         <span className="text-xs font-semibold sm:text-sm">{day.getDate()}</span>
-                        {holidayLabel ? (
-                          <span className="rounded-full bg-emerald-700 px-1 py-0.5 text-[8px] font-semibold uppercase text-white sm:px-2 sm:py-0.5 sm:text-[10px]">
-                            Férié
-                          </span>
-                        ) : null}
+                        {holidayLabel ? <span className="hidden rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Férié</span> : null}
                       </div>
-                      <div className="mt-1 min-h-[28px] text-[9px] leading-3 sm:mt-2 sm:min-h-[34px] sm:text-[11px] sm:leading-5">
+                      <div className="mt-1 min-w-0 space-y-1 text-[10px] leading-3 sm:mt-2 sm:text-xs sm:leading-4">
                         {isReserved ? (
-                          <>
-                            <p className="font-semibold text-rose-700">Réservé</p>
-                            <p className="text-slate-700">{reservedLabel}</p>
-                          </>
+                          dayReservations.map((reservation) => {
+                            const reservationStyle = getFamilyStyle(reservation.user_family);
+                            const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
+                            const timeRange = [formatTime(reservation.start_time), formatTime(reservation.end_time)].filter(Boolean).join(' - ');
+
+                            return (
+                              <div key={reservation.id} className={`rounded-lg border px-1.5 py-1 ${reservationStyle.cell}`} title={`${person}${timeRange ? `, ${timeRange}` : ''}`}>
+                                <p className="truncate font-bold">{person}</p>
+                                {timeRange ? <p className="truncate">{timeRange}</p> : null}
+                                <p className="truncate text-[9px] opacity-80">{reservation.reservation_type ?? reservation.status}</p>
+                              </div>
+                            );
+                          })
                         ) : holidayLabel ? (
-                          <p className="text-emerald-700">{holidayLabel}</p>
+                          <p className="truncate text-emerald-700">{holidayLabel}</p>
                         ) : (
                           <p className="text-slate-500">Libre</p>
                         )}
@@ -228,6 +296,26 @@ export default function CalendarPage() {
                 })
               )}
             </div>
+          </section>
+
+          <section className="space-y-4">
+            <div className="space-y-1">
+              <h3 className="text-lg font-semibold text-slate-900">Réservations du mois</h3>
+              <p className="text-sm leading-6 text-slate-600">Détails des réservations qui touchent {monthLabel}.</p>
+            </div>
+            {loading ? (
+              <p className="text-sm text-slate-600">Chargement du calendrier...</p>
+            ) : monthReservations.length === 0 ? (
+              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600 shadow-soft">
+                Aucune réservation sur ce mois.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {monthReservations.map((reservation) => (
+                  <ReservationCard key={reservation.id} reservation={reservation} />
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </AppShell>
