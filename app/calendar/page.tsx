@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
 import { ReservationCard } from '@/components/ReservationCard';
 import { families, formatDate, getFamilyStyle } from '@/lib/families';
-import { defaultFamilyPeriods, formatTime, getPeriodForDate, isPeriodEnd, isPeriodStart } from '@/lib/planning';
+import { defaultFamilyPeriods, getPeriodForDate, isPeriodEnd, isPeriodStart } from '@/lib/planning';
 import type { FamilyPeriod, FamilySetting } from '@/lib/types';
 
 const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -99,7 +99,7 @@ export default function CalendarPage() {
     async function loadReservations() {
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, start_date, end_date, start_time, end_time, reservation_type, status, guests, comment, user_id, created_at, updated_at, profiles(full_name, first_name, family)')
+        .select('id, start_date, end_date, status, guests, comment, user_id, created_at, updated_at, profiles(full_name, first_name, family)')
         .order('start_date', { ascending: true });
 
       if (data) {
@@ -275,13 +275,10 @@ export default function CalendarPage() {
                           dayReservations.map((reservation) => {
                             const reservationStyle = getFamilyStyle(reservation.user_family);
                             const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
-                            const timeRange = [formatTime(reservation.start_time), formatTime(reservation.end_time)].filter(Boolean).join(' - ');
 
                             return (
-                              <div key={reservation.id} className={`rounded-lg border px-1.5 py-1 ${reservationStyle.cell}`} title={`${person}${timeRange ? `, ${timeRange}` : ''}`}>
+                              <div key={reservation.id} className={`rounded-lg border px-1.5 py-1 ${reservationStyle.cell}`} title={person}>
                                 <p className="truncate font-bold">{person}</p>
-                                {timeRange ? <p className="truncate">{timeRange}</p> : null}
-                                <p className="truncate text-[9px] opacity-80">{reservation.reservation_type ?? reservation.status}</p>
                               </div>
                             );
                           })

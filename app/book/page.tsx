@@ -179,9 +179,6 @@ export default function BookPage() {
   const { user } = useAuth();
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [reservationType, setReservationType] = useState('Séjour');
   const [guests, setGuests] = useState(2);
   const [comment, setComment] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -195,7 +192,7 @@ export default function BookPage() {
     async function loadReservations() {
       const { data } = await supabase
         .from('reservations')
-        .select('id, start_date, end_date, start_time, end_time, reservation_type, status, guests, comment, user_id, created_at, updated_at, profiles(full_name, first_name, family)')
+        .select('id, start_date, end_date, status, guests, comment, user_id, created_at, updated_at, profiles(full_name, first_name, family)')
         .eq('status', 'approved')
         .order('start_date', { ascending: true });
       if (data) {
@@ -282,11 +279,6 @@ export default function BookPage() {
       return;
     }
 
-    if ((startTime && !endTime) || (!startTime && endTime) || (startTime && endTime && startDate === endDate && endTime <= startTime)) {
-      setError("L'heure de fin doit être après l'heure de début lorsque les horaires sont renseignés.");
-      return;
-    }
-
     if (!user) {
       setError('Utilisateur non connecté.');
       return;
@@ -296,7 +288,7 @@ export default function BookPage() {
 
     const { data: conflicts, error: conflictError } = await supabase
       .from('reservations')
-      .select('id, start_date, end_date, start_time, end_time')
+      .select('id')
       .eq('status', 'approved')
       .lte('start_date', endDate)
       .gte('end_date', startDate);
@@ -307,13 +299,7 @@ export default function BookPage() {
       return;
     }
 
-    const hasTimeConflict = conflicts?.some((conflict) => {
-      if (!startTime || !endTime || !conflict.start_time || !conflict.end_time) return true;
-      if (startDate !== conflict.end_date && endDate !== conflict.start_date) return true;
-      return conflict.start_time < endTime && conflict.end_time > startTime;
-    });
-
-    if (hasTimeConflict) {
+    if (conflicts && conflicts.length > 0) {
       setError("Cette période chevauche une réservation validée. Choisissez d'autres dates.");
       setLoading(false);
       return;
@@ -323,9 +309,6 @@ export default function BookPage() {
       user_id: user.id,
       start_date: startDate,
       end_date: endDate,
-      start_time: startTime || null,
-      end_time: endTime || null,
-      reservation_type: reservationType,
       guests,
       comment,
       status: 'pending',
@@ -340,9 +323,6 @@ export default function BookPage() {
     setSuccess('Demande envoyée. Elle est en attente de validation.');
     setStartDate('');
     setEndDate('');
-    setStartTime('');
-    setEndTime('');
-    setReservationType('Séjour');
     setGuests(2);
     setComment('');
     setLoading(false);
@@ -355,25 +335,6 @@ export default function BookPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <DateField label="Date d'arrivée" value={startDate} onChange={setStartDate} reservationsByDate={reservationsByDate} />
             <DateField label="Date de départ" value={endDate} onChange={setEndDate} reservationsByDate={reservationsByDate} />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <label className="block text-sm font-medium text-slate-700">
-              Heure de début
-              <input type="time" value={startTime} onChange={(event) => setStartTime(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-brand-500" />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Heure de fin
-              <input type="time" value={endTime} onChange={(event) => setEndTime(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-brand-500" />
-            </label>
-            <label className="block text-sm font-medium text-slate-700">
-              Type de réservation
-              <select value={reservationType} onChange={(event) => setReservationType(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 focus:border-brand-500">
-                <option>Séjour</option>
-                <option>Week-end</option>
-                <option>Journée</option>
-                <option>Événement</option>
-              </select>
-            </label>
           </div>
           <label className="block text-sm font-medium text-slate-700">
             Nombre de personnes

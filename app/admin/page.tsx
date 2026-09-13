@@ -35,7 +35,7 @@ export default function AdminPage() {
     async function loadAll() {
       const { data, error } = await supabase
         .from('reservations')
-        .select('id, start_date, end_date, start_time, end_time, reservation_type, status, guests, comment, user_id, created_at, updated_at, profiles(full_name, first_name, family)')
+        .select('id, start_date, end_date, status, guests, comment, user_id, created_at, updated_at, profiles(full_name, first_name, family)')
         .order('created_at', { ascending: false });
       if (data) {
         setReservations(
@@ -201,6 +201,19 @@ export default function AdminPage() {
     <ProtectedPage adminOnly>
       <AppShell title="Espace admin">
         <div className="space-y-5 sm:space-y-6">
+          <nav aria-label="Raccourcis administrateur" className="flex gap-2 overflow-x-auto rounded-3xl border border-slate-200 bg-white p-2 shadow-soft">
+            <a href="#planning-import" className="flex min-h-11 shrink-0 items-center gap-2 rounded-2xl bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-700">
+              <span aria-hidden="true">▣</span>
+              Importer un planning
+            </a>
+            <a href="#family-periods" className="flex min-h-11 shrink-0 items-center rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
+              Gérer les souhaits
+            </a>
+            <a href="#pending-reservations" className="flex min-h-11 shrink-0 items-center rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
+              Réservations
+            </a>
+          </nav>
+
           <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
             <h2 className="text-lg font-semibold text-slate-900">Créer un compte famille</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">Seul un administrateur connecté peut créer un compte.</p>
@@ -270,9 +283,9 @@ export default function AdminPage() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
-            <h2 className="text-lg font-semibold text-slate-900">Planning familial</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Ajoutez ou corrigez les périodes sans modifier le code.</p>
+          <section id="family-periods" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
+            <h2 className="text-lg font-semibold text-slate-900">Souhaits des familles</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Ajoutez ou corrigez les périodes souhaitées par une famille. Ces périodes ne créent pas de réservation individuelle.</p>
             <form onSubmit={savePeriod} className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <label className="block text-sm font-medium text-slate-700">Année<input type="number" value={periodForm.year} onChange={(event) => setPeriodForm({ ...periodForm, year: event.target.value })} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <label className="block text-sm font-medium text-slate-700">Famille<select value={periodForm.family} onChange={(event) => setPeriodForm({ ...periodForm, family: event.target.value })} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"><option>PUGNET</option><option>PLAGNOL</option><option>NGUYEN</option><option>BRETEAU</option></select></label>
@@ -287,9 +300,9 @@ export default function AdminPage() {
             </div>
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
+          <section id="planning-import" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
             <h2 className="text-lg font-semibold text-slate-900">Importer un planning JPEG</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">L’image est prévisualisée et conservée en brouillon. La saisie des périodes reste à valider manuellement, aucun planning existant n’est écrasé.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Importez une image des souhaits familiaux. Elle sert à préparer des périodes de familles, pas à créer des réservations pour des personnes. L’image est prévisualisée et conservée en brouillon ; aucun planning existant n’est écrasé.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr]">
               <label className="block text-sm font-medium text-slate-700">Année<input type="number" value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <label className="block text-sm font-medium text-slate-700">Image JPEG<input type="file" accept="image/jpeg,image/jpg" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
@@ -299,7 +312,7 @@ export default function AdminPage() {
             {planningImports.length > 0 ? <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-slate-900">Historique des imports</h3>{planningImports.map((planningImport) => <div key={planningImport.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>{planningImport.year} · {planningImport.file_name}</span><span className="font-semibold">{planningImport.status === 'validated' ? 'Validé' : 'Brouillon'}</span></div>)}</div> : null}
           </section>
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
+          <section id="pending-reservations" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
             <div>
               <h2 className="text-lg font-semibold text-slate-900">Demandes en attente</h2>
               <p className="mt-2 text-sm leading-6 text-slate-600">Validez ou refusez les nouvelles demandes.</p>

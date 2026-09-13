@@ -2,7 +2,6 @@
 
 import type { Reservation } from '@/lib/types';
 import { formatDate, getFamilyStyle } from '@/lib/families';
-import { formatTime } from '@/lib/planning';
 
 const statusStyle: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -28,7 +27,6 @@ export function ReservationCard({ reservation }: { reservation: Reservation }) {
           </p>
           <p className="mt-1 text-sm text-slate-600">
             {formatDate(reservation.start_date)} → {formatDate(reservation.end_date)}
-            {reservation.start_time || reservation.end_time ? ` · ${formatTime(reservation.start_time) ?? '--:--'} - ${formatTime(reservation.end_time) ?? '--:--'}` : ''}
           </p>
         </div>
         <span className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${statusStyle[reservation.status]}`}>
@@ -36,7 +34,6 @@ export function ReservationCard({ reservation }: { reservation: Reservation }) {
         </span>
       </div>
       <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-        <p>Type : {reservation.reservation_type ?? 'Séjour'}</p>
         <p>Invités : {reservation.guests}</p>
         {reservation.comment ? <p className="break-words">Commentaire : {reservation.comment}</p> : null}
       </div>

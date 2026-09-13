@@ -30,6 +30,3 @@ export function isPeriodEnd(period: FamilyPeriod | undefined, dateKey: string) {
   return Boolean(period && period.end_date === dateKey);
 }
 
-export function formatTime(time?: string | null) {
-  return time ? time.slice(0, 5) : null;
-}

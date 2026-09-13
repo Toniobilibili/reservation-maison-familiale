@@ -15,9 +15,6 @@ export type Reservation = {
   user_id: string;
   start_date: string;
   end_date: string;
-  start_time?: string | null;
-  end_time?: string | null;
-  reservation_type?: string;
   guests: number;
   comment: string | null;
   status: ReservationStatus;

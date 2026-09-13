@@ -26,9 +26,6 @@ create table if not exists public.reservations (
 
 alter table public.reservations enable row level security;
 alter table public.profiles enable row level security;
-alter table public.reservations add column if not exists start_time time;
-alter table public.reservations add column if not exists end_time time;
-alter table public.reservations add column if not exists reservation_type text not null default 'Séjour';
 
 create table if not exists public.family_periods (
   id uuid primary key default gen_random_uuid(),
@@ -199,15 +196,7 @@ begin
   where id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000')
     and status = 'approved'
     and start_date <= new.end_date
-    and end_date >= new.start_date
-    and (
-      start_time is null
-      or end_time is null
-      or new.start_time is null
-      or new.end_time is null
-      or start_time < new.end_time
-      and end_time > new.start_time
-    );
+    and end_date >= new.start_date;
 
   if overlap_count > 0 then
     raise exception 'Cette période chevauche une réservation validée existante.';
