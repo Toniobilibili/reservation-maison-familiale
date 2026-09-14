@@ -187,6 +187,8 @@ export default function BookPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [myReservations, setMyReservations] = useState<Reservation[]>([]);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ start_date: '', end_date: '', guests: 2, comment: '' });
 
   useEffect(() => {
     async function loadReservations() {
@@ -243,6 +245,52 @@ export default function BookPage() {
     }
 
     setDeletingId(null);
+  }
+
+  function startEditing(reservation: Reservation) {
+    setEditingId(reservation.id);
+    setEditForm({ start_date: reservation.start_date, end_date: reservation.end_date, guests: reservation.guests, comment: reservation.comment ?? '' });
+    setError(null);
+  }
+
+  async function updateOwnReservation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingId || !user) return;
+    setError(null);
+    if (new Date(editForm.end_date) <= new Date(editForm.start_date)) {
+      setError("La date de départ doit être après la date d'arrivée.");
+      return;
+    }
+    setLoading(true);
+    const { data: conflicts, error: conflictError } = await supabase
+      .from('reservations')
+      .select('id')
+      .neq('id', editingId)
+      .neq('status', 'rejected')
+      .lte('start_date', editForm.end_date)
+      .gte('end_date', editForm.start_date);
+    if (conflictError) {
+      setError(conflictError.message);
+    } else if (conflicts?.length) {
+      setError('Cette période chevauche une réservation existante.');
+    } else {
+      const { data, error: updateError } = await supabase
+        .from('reservations')
+        .update({ start_date: editForm.start_date, end_date: editForm.end_date, guests: editForm.guests, comment: editForm.comment })
+        .eq('id', editingId)
+        .eq('user_id', user.id)
+        .select('id, start_date, end_date, status, guests, comment, user_id, created_at, updated_at')
+        .single();
+      if (updateError) {
+        setError(updateError.message);
+      } else if (data) {
+        setMyReservations((current) => current.map((reservation) => reservation.id === editingId ? { ...reservation, ...data } : reservation));
+        setReservations((current) => current.map((reservation) => reservation.id === editingId ? { ...reservation, ...data } : reservation));
+        setEditingId(null);
+        setSuccess('Réservation modifiée.');
+      }
+    }
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -375,22 +423,22 @@ export default function BookPage() {
         <section className="mt-5 space-y-3 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-6">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Mes demandes</h2>
-            <p className="mt-1 text-sm text-slate-600">Vous pouvez supprimer vos propres réservations.</p>
+            <p className="mt-1 text-sm text-slate-600">Vous pouvez modifier ou supprimer vos propres réservations.</p>
           </div>
           {myReservations.length === 0 ? <p className="text-sm text-slate-600">Aucune demande personnelle.</p> : myReservations.map((reservation) => (
             <div key={reservation.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0">
+              {editingId === reservation.id ? <form onSubmit={updateOwnReservation} className="grid w-full gap-2 sm:grid-cols-4"><input type="date" value={editForm.start_date} onChange={(event) => setEditForm({ ...editForm, start_date: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" required /><input type="date" value={editForm.end_date} onChange={(event) => setEditForm({ ...editForm, end_date: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" required /><input type="number" min={1} max={99} value={editForm.guests} onChange={(event) => setEditForm({ ...editForm, guests: Number(event.target.value) })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" required /><input value={editForm.comment} onChange={(event) => setEditForm({ ...editForm, comment: event.target.value })} placeholder="Commentaire" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" /><div className="flex gap-2 sm:col-span-4"><button type="submit" disabled={loading} className="rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Enregistrer</button><button type="button" onClick={() => setEditingId(null)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold">Annuler</button></div></form> : <><div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-900">{formatDate(reservation.start_date)} → {formatDate(reservation.end_date)}</p>
                 <p className="mt-1 text-sm text-slate-600">{statusLabel[reservation.status]}</p>
               </div>
-              <button
+              <div className="flex w-full gap-2 sm:w-auto"><button type="button" onClick={() => startEditing(reservation)} className="min-h-10 flex-1 rounded-xl border border-brand-200 px-3 py-2 text-sm font-semibold text-brand-700 sm:flex-none">Modifier</button><button
                 type="button"
                 onClick={() => deleteOwnReservation(reservation.id)}
                 disabled={deletingId === reservation.id}
                 className="min-h-10 w-full rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
               >
                 {deletingId === reservation.id ? 'Suppression...' : 'Supprimer'}
-              </button>
+              </button></div></>}
             </div>
           ))}
         </section>

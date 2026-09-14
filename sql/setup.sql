@@ -136,6 +136,7 @@ create policy "Profiles: update admin only" on public.profiles
 drop policy if exists "Reservations: select member access" on public.reservations;
 drop policy if exists "Reservations: insert own request" on public.reservations;
 drop policy if exists "Reservations: update admin only" on public.reservations;
+drop policy if exists "Reservations: update own" on public.reservations;
 drop policy if exists "Reservations: delete admin only" on public.reservations;
 drop policy if exists "Reservations: delete own or admin" on public.reservations;
 
@@ -154,6 +155,12 @@ create policy "Reservations: insert own request" on public.reservations
 create policy "Reservations: update admin only" on public.reservations
   for update
   using (public.is_admin());
+
+create policy "Reservations: update own" on public.reservations
+  for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
 
 grant delete on table public.reservations to authenticated;
 
