@@ -228,16 +228,10 @@ export default function AdminPage() {
 
     setReservationError(null);
     setActionLoading(id);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const response = await fetch('/api/admin/users', {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${sessionData.session?.access_token ?? ''}` },
-      body: JSON.stringify({ id }),
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      setReservationError(result.error ?? 'Impossible de supprimer la réservation.');
-    } else if (!result.deleted) {
+    const { data, error } = await supabase.from('reservations').delete().eq('id', id).select('id');
+    if (error) {
+      setReservationError(error.message);
+    } else if (!data?.length) {
       setReservationError('La réservation est introuvable ou déjà supprimée.');
     } else {
       setReservations((current) => current.filter((reservation) => reservation.id !== id));
@@ -252,16 +246,10 @@ export default function AdminPage() {
 
     setReservationError(null);
     setActionLoading('all');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const response = await fetch('/api/admin/users', {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${sessionData.session?.access_token ?? ''}` },
-      body: JSON.stringify({ all: true }),
-    });
-    const result = await response.json();
-    if (!response.ok) {
-      setReservationError(result.error ?? 'Impossible de supprimer les réservations.');
-    } else if (!result.deleted) {
+    const { data, error } = await supabase.from('reservations').delete().not('id', 'is', null).select('id');
+    if (error) {
+      setReservationError(error.message);
+    } else if (!data?.length) {
       setReservationError('Aucune réservation supprimée.');
     } else {
       setReservations([]);
