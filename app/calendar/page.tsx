@@ -284,10 +284,10 @@ export default function CalendarPage() {
                     const familyStyle = getFamilyStyle(family);
                     const familySetting = familySettings.find((setting) => setting.family === family);
                     const visualStyle = familySetting
-                      ? { borderColor: familySetting.border_color, color: familySetting.text_color }
-                      : { borderColor: familyStyle.border, color: familyStyle.text };
+                      ? { backgroundColor: familySetting.bg_color, borderColor: familySetting.border_color, color: familySetting.text_color }
+                      : { backgroundColor: familyStyle.background, borderColor: familyStyle.border, color: familyStyle.text };
                     return (
-                      <span key={family} className="rounded-xl border-2 bg-white px-3 py-1.5 text-xs font-semibold" style={visualStyle}>
+                      <span key={family} className="rounded-xl border-2 px-3 py-1.5 text-xs font-semibold" style={visualStyle}>
                         {familyStyle.label}
                       </span>
                     );
