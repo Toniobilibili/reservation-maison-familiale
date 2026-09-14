@@ -7,6 +7,7 @@ import { useAuth } from '@/components/AuthContext';
 import { AppShell } from '@/components/AppShell';
 import type { Reservation } from '@/lib/types';
 import { formatDate } from '@/lib/families';
+import { getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
 
 const statusLabel: Record<string, string> = {
   approved: 'Validée',
@@ -95,7 +96,7 @@ export default function HomePage() {
                 <div key={reservation.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900">{reservation.user_family ?? 'Famille'} - {reservation.user_first_name ?? reservation.user_full_name}</p>
+                      <p className="flex items-center gap-2 truncate text-sm font-semibold text-slate-900"><span className="h-2.5 w-2.5 shrink-0 rounded-full border" style={getFamilyVisualStyle(reservation.user_family)} aria-hidden="true" /><span className="truncate">{getFamilyStyle(reservation.user_family).label} · {reservation.user_first_name ?? reservation.user_full_name}</span></p>
                       <p className="text-sm text-slate-600">
                         {formatDate(reservation.start_date)} → {formatDate(reservation.end_date)}
                       </p>

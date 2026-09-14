@@ -7,7 +7,7 @@ import { ProtectedPage } from '@/components/ProtectedPage';
 import { useAuth } from '@/components/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
-import { formatDate, getFamilyStyle } from '@/lib/families';
+import { formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
 
 const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
@@ -396,8 +396,8 @@ export default function BookPage() {
           </div>
           {reservations.length === 0 ? <p className="text-sm text-slate-600">Aucune réservation validée.</p> : reservations.map((reservation) => {
             const familyStyle = getFamilyStyle(reservation.user_family);
-            return <div key={reservation.id} className={`rounded-2xl border p-3 ${familyStyle.cell}`}>
-              <p className="text-base font-semibold">{familyStyle.label} - {reservation.user_first_name ?? reservation.user_full_name}</p>
+            return <div key={reservation.id} className={`rounded-2xl border p-3 ${familyStyle.cell}`} style={getFamilyVisualStyle(reservation.user_family)}>
+              <p className="text-base font-semibold"><span className="font-bold">{familyStyle.label}</span> <span className="opacity-80">·</span> {reservation.user_first_name ?? reservation.user_full_name}</p>
               <p className="text-sm">{formatDate(reservation.start_date)} → {formatDate(reservation.end_date)}</p>
             </div>;
           })}

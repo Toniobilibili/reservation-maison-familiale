@@ -6,7 +6,7 @@ import { ProtectedPage } from '@/components/ProtectedPage';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
 import { ReservationCard } from '@/components/ReservationCard';
-import { families, formatDate, getFamilyStyle } from '@/lib/families';
+import { families, formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
 import { defaultFamilyPeriods, getPeriodForDate, isPeriodEnd, isPeriodStart } from '@/lib/planning';
 import type { FamilyPeriod, FamilySetting } from '@/lib/types';
 
@@ -275,11 +275,10 @@ export default function CalendarPage() {
                       <div className="mt-1 min-w-0 space-y-1 text-[10px] leading-3 sm:mt-2 sm:text-xs sm:leading-4">
                         {isReserved ? (
                           dayReservations.map((reservation) => {
-                            const reservationStyle = getFamilyStyle(reservation.user_family);
                             const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
 
                             return (
-                              <div key={reservation.id} className={`rounded-lg border px-1.5 py-1 ${reservationStyle.cell}`} title={person}>
+                              <div key={reservation.id} className="rounded-lg border bg-white/75 px-1.5 py-1 shadow-sm" style={getFamilyVisualStyle(reservation.user_family)} title={person}>
                                 <p className="truncate font-bold">{person}</p>
                               </div>
                             );

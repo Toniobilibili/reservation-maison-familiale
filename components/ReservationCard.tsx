@@ -1,7 +1,7 @@
 'use client';
 
 import type { Reservation } from '@/lib/types';
-import { formatDate, getFamilyStyle } from '@/lib/families';
+import { formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
 
 const statusStyle: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
@@ -22,7 +22,7 @@ export function ReservationCard({ reservation }: { reservation: Reservation }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="flex flex-wrap items-center gap-2 text-base font-semibold text-slate-900">
-            <span className={`rounded-full px-3 py-1 text-sm ${familyStyle.badge}`}>{familyStyle.label}</span>
+            <span className={`rounded-full border px-3 py-1 text-sm ${familyStyle.badge}`} style={getFamilyVisualStyle(reservation.user_family)}>{familyStyle.label}</span>
             <span>{reservation.user_first_name ?? reservation.user_full_name ?? 'Famille'}</span>
           </p>
           <p className="mt-1 text-sm text-slate-600">
