@@ -275,7 +275,8 @@ export default function CalendarPage() {
                   Encadrement extérieur : planning « Programme familial » issu du JPEG envoyé par Laurent.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-700">
-                  <span className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5">Vacances scolaires · Zone C</span>
+                  <span className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5">Vacances scolaires - zone C</span>
+                  <span className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5">Jours fériés</span>
                   <span className="text-slate-500">Les jours concernés sont marqués en vert.</span>
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-600">
@@ -338,7 +339,7 @@ export default function CalendarPage() {
                     >
                       <div className="flex items-start justify-between gap-1">
                         <span className="text-xs font-semibold sm:text-sm">{day.getDate()}</span>
-                        {holidayLabel ? <span className="hidden rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Férié</span> : null}
+                        {holidayLabel ? <span className="hidden rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Jour férié</span> : null}
                       </div>
                       <div className="mt-0.5 min-w-0 space-y-0.5 text-[10px] leading-3 sm:mt-1 sm:text-xs sm:leading-4">
                         {!familyPeriod && (holidayLabel || schoolVacationLabel) ? (
