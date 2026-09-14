@@ -5,7 +5,6 @@ import { AppShell } from '@/components/AppShell';
 import { ProtectedPage } from '@/components/ProtectedPage';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
-import { ReservationCard } from '@/components/ReservationCard';
 import { families, formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
 import { defaultFamilyPeriods, getPeriodForDate, isPeriodEnd, isPeriodStart } from '@/lib/planning';
 import type { FamilyPeriod } from '@/lib/types';
@@ -206,23 +205,6 @@ export default function CalendarPage() {
   }, [reservations]);
 
   const grid = useMemo(() => getCalendarGrid(year, monthIndex), [monthIndex, year]);
-  const monthStart = useMemo(() => new Date(year, monthIndex, 1), [monthIndex, year]);
-  const monthEnd = useMemo(() => new Date(year, monthIndex + 1, 0), [monthIndex, year]);
-
-  const monthReservations = useMemo(
-    () =>
-      reservations.filter((reservation) => {
-        if (reservation.status === 'rejected') {
-          return false;
-        }
-
-        const reservationStart = parseDateKey(reservation.start_date);
-        const reservationEnd = parseDateKey(reservation.end_date);
-        return reservationStart <= monthEnd && reservationEnd >= monthStart;
-      }),
-    [monthEnd, monthStart, reservations]
-  );
-
   function goPreviousMonth() {
     if (monthIndex === 0) {
       setMonthIndex(11);
@@ -358,25 +340,6 @@ export default function CalendarPage() {
             </div>
           </section>
 
-          <section className="space-y-4">
-            <div className="space-y-1">
-              <h3 className="text-lg font-semibold text-slate-900">Réservations du mois</h3>
-              <p className="text-sm leading-6 text-slate-600">Détails des réservations qui touchent {monthLabel}.</p>
-            </div>
-            {loading ? (
-              <p className="text-sm text-slate-600">Chargement du calendrier...</p>
-            ) : monthReservations.length === 0 ? (
-              <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600 shadow-soft">
-                Aucune réservation sur ce mois.
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {monthReservations.map((reservation) => (
-                  <ReservationCard key={reservation.id} reservation={reservation} />
-                ))}
-              </div>
-            )}
-          </section>
         </div>
       </AppShell>
     </ProtectedPage>
