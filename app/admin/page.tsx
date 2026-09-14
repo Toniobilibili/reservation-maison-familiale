@@ -425,27 +425,6 @@ export default function AdminPage() {
             {planningImports.length > 0 ? <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-slate-900">Historique des imports</h3>{planningImports.map((planningImport) => <div key={planningImport.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>{planningImport.year} · {planningImport.file_name}</span><span className="font-semibold">{planningImport.status === 'validated' ? 'Validé' : 'Brouillon'}</span></div>)}</div> : null}
           </section>
 
-          {loading ? (
-            <p className="text-sm text-slate-600">Chargement des réservations...</p>
-          ) : (
-            <div className="space-y-4">
-              {reservations.map((reservation) => (
-                <div key={reservation.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3 shadow-soft sm:p-4">
-                  <ReservationCard reservation={reservation} />
-                  <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
-                    <button
-                      onClick={() => removeReservation(reservation.id)}
-                      disabled={actionLoading === reservation.id}
-                      className="rounded-2xl border border-rose-200 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
           <section id="all-reservations" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
