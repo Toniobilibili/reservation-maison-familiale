@@ -327,12 +327,12 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
-                      className={`min-h-[150px] border p-1 text-left transition sm:min-h-[188px] sm:p-2 ${
+                      className={`min-h-[150px] p-1 text-left transition sm:min-h-[188px] sm:p-2 ${
                         familyPeriod
-                          ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'} border-y-2`
+                          ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'}`
                           : holidayLabel || schoolVacationLabel
-                          ? 'rounded-xl border-emerald-300 bg-emerald-50 text-slate-900'
-                          : 'rounded-xl border-slate-200 bg-white text-slate-700'
+                          ? 'rounded-xl border border-emerald-300 bg-emerald-50 text-slate-900'
+                          : 'rounded-xl border border-slate-200 bg-white text-slate-700'
                       } ${isCurrentMonth ? '' : 'opacity-40'}`}
                       style={periodSetting ? { backgroundColor: periodSetting.bg_color, borderColor: periodSetting.border_color, color: periodSetting.text_color } : undefined}
                     >
