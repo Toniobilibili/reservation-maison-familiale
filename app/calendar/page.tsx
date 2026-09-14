@@ -8,7 +8,7 @@ import type { Reservation } from '@/lib/types';
 import { ReservationCard } from '@/components/ReservationCard';
 import { families, formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
 import { defaultFamilyPeriods, getPeriodForDate, isPeriodEnd, isPeriodStart } from '@/lib/planning';
-import type { FamilyPeriod, FamilySetting } from '@/lib/types';
+import type { FamilyPeriod } from '@/lib/types';
 
 const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
@@ -140,7 +140,6 @@ export default function CalendarPage() {
   const [monthIndex, setMonthIndex] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
   const [familyPeriods, setFamilyPeriods] = useState<FamilyPeriod[]>(defaultFamilyPeriods);
-  const [familySettings, setFamilySettings] = useState<FamilySetting[]>([]);
 
   useEffect(() => {
     async function loadReservations() {
@@ -176,8 +175,6 @@ export default function CalendarPage() {
       if (periodData && periodData.length > 0) {
         setFamilyPeriods(periodData as FamilyPeriod[]);
       }
-      const { data: settingData } = await supabase.from('family_settings').select('family, label, bg_color, border_color, text_color, updated_at').order('family');
-      if (settingData) setFamilySettings(settingData as FamilySetting[]);
       setLoading(false);
     }
     loadReservations();
@@ -282,10 +279,7 @@ export default function CalendarPage() {
                 <div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-600">
                   {families.map((family) => {
                     const familyStyle = getFamilyStyle(family);
-                    const familySetting = familySettings.find((setting) => setting.family === family);
-                    const visualStyle = familySetting
-                      ? { backgroundColor: familySetting.bg_color, borderColor: familySetting.border_color, color: familySetting.text_color }
-                      : { backgroundColor: familyStyle.background, borderColor: familyStyle.border, color: familyStyle.text };
+                    const visualStyle = { backgroundColor: familyStyle.background, borderColor: familyStyle.border, color: familyStyle.text };
                     return (
                       <span key={family} className="rounded-xl border-2 px-3 py-1.5 text-xs font-semibold" style={visualStyle}>
                         {familyStyle.label}
@@ -321,7 +315,6 @@ export default function CalendarPage() {
                   const isReserved = Boolean(dayReservations?.length);
                   const familyPeriod = getPeriodForDate(familyPeriods, key);
                   const periodStyle = getFamilyStyle(familyPeriod?.family);
-                  const periodSetting = familySettings.find((setting) => setting.family === familyPeriod?.family);
                   const periodStart = isPeriodStart(familyPeriod, key);
                   const periodEnd = isPeriodEnd(familyPeriod, key);
 
@@ -335,7 +328,6 @@ export default function CalendarPage() {
                           ? 'rounded-xl border border-emerald-300 bg-emerald-50 text-slate-900'
                           : 'rounded-xl border border-slate-200 bg-white text-slate-700'
                       } ${isCurrentMonth ? '' : 'opacity-40'}`}
-                      style={periodSetting ? { backgroundColor: periodSetting.bg_color, borderColor: periodSetting.border_color, color: periodSetting.text_color } : undefined}
                     >
                       <div className="flex items-start justify-between gap-1">
                         <span className="text-xs font-semibold sm:text-sm">{day.getDate()}</span>
@@ -353,9 +345,8 @@ export default function CalendarPage() {
                 })}
                 {weekPeriods.map((period, periodIndex) => {
                   const style = getFamilyStyle(period.family);
-                  const setting = familySettings.find((item) => item.family === period.family);
                   const position = getBarPosition(period.start_date, period.end_date, week);
-                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg shadow-sm" style={{ ...position, top: `calc(1.6rem + ${periodIndex} * 1.25rem)`, backgroundColor: setting?.bg_color ?? style.background }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
+                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg shadow-sm" style={{ ...position, top: `calc(1.6rem + ${periodIndex} * 1.25rem)`, backgroundColor: style.background }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
                 })}
                 {weekReservations.map((reservation, reservationIndex) => {
                   const style = getFamilyStyle(reservation.user_family);
