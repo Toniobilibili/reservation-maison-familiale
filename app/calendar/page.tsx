@@ -87,6 +87,35 @@ function holidaysForYear(year: number) {
   } as Record<string, string>;
 }
 
+const zoneCVacations: Array<{ start: string; end: string; label: string }> = [
+  { start: '2025-10-18', end: '2025-11-03', label: 'Vacances de la Toussaint · Zone C' },
+  { start: '2025-12-20', end: '2026-01-05', label: 'Vacances de Noël · Zone C' },
+  { start: '2026-02-21', end: '2026-03-09', label: "Vacances d'hiver · Zone C" },
+  { start: '2026-04-18', end: '2026-05-04', label: 'Vacances de printemps · Zone C' },
+  { start: '2026-07-04', end: '2026-09-01', label: "Vacances d'été · Zone C" },
+  { start: '2026-10-17', end: '2026-11-02', label: 'Vacances de la Toussaint · Zone C' },
+  { start: '2026-12-19', end: '2027-01-04', label: 'Vacances de Noël · Zone C' },
+  { start: '2027-02-06', end: '2027-02-22', label: "Vacances d'hiver · Zone C" },
+  { start: '2027-04-03', end: '2027-04-19', label: 'Vacances de printemps · Zone C' },
+  { start: '2027-07-03', end: '2027-09-01', label: "Vacances d'été · Zone C" },
+];
+
+function schoolVacationsForYear(year: number) {
+  const vacations: Record<string, string> = {};
+
+  zoneCVacations.forEach(({ start, end, label }) => {
+    const current = parseDateKey(start);
+    const last = parseDateKey(end);
+
+    while (current <= last) {
+      if (current.getFullYear() === year) vacations[getDateKey(current)] = label;
+      current.setDate(current.getDate() + 1);
+    }
+  });
+
+  return vacations;
+}
+
 export default function CalendarPage() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,6 +166,7 @@ export default function CalendarPage() {
   }, [year]);
 
   const holidays = useMemo(() => holidaysForYear(year), [year]);
+  const schoolVacations = useMemo(() => schoolVacationsForYear(year), [year]);
 
   const reservedMap = useMemo(() => {
     const map: Record<string, Reservation[]> = {};
@@ -226,6 +256,10 @@ export default function CalendarPage() {
                 <p className="text-xs leading-5 text-slate-600 sm:text-sm">
                   Encadrement extérieur : planning « Programme familial » issu du JPEG envoyé par Laurent.
                 </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-700">
+                  <span className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5">Vacances scolaires · Zone C</span>
+                  <span className="text-slate-500">Les jours concernés sont marqués en vert.</span>
+                </div>
                 <div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-600">
                   {families.map((family) => {
                     const familyStyle = getFamilyStyle(family);
@@ -257,6 +291,7 @@ export default function CalendarPage() {
                   const key = getDateKey(day);
                   const isCurrentMonth = day.getMonth() === monthIndex;
                   const holidayLabel = holidays[key];
+                  const schoolVacationLabel = schoolVacations[key];
                   const dayReservations = reservedMap[key];
                   const isReserved = Boolean(dayReservations?.length);
                   const familyPeriod = getPeriodForDate(familyPeriods, key);
@@ -272,7 +307,7 @@ export default function CalendarPage() {
                       className={`min-h-[82px] border p-1 text-left transition sm:min-h-[122px] sm:p-2 ${
                         familyPeriod
                           ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'} border-y-2`
-                          : holidayLabel
+                          : holidayLabel || schoolVacationLabel
                           ? 'rounded-xl border-emerald-300 bg-emerald-50 text-slate-900'
                           : 'rounded-xl border-slate-200 bg-white text-slate-700'
                       } ${isCurrentMonth ? '' : 'opacity-40'}`}
@@ -281,6 +316,7 @@ export default function CalendarPage() {
                       <div className="flex items-start justify-between gap-1">
                         <span className="text-xs font-semibold sm:text-sm">{day.getDate()}</span>
                         {holidayLabel ? <span className="hidden rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Férié</span> : null}
+                        {schoolVacationLabel ? <span className="hidden rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Zone C</span> : null}
                       </div>
                       {periodLabel ? <p className="mt-1 truncate text-[8px] font-bold uppercase leading-3 sm:text-[10px]" title={periodLabel}>{periodLabel}</p> : null}
                       <div className="mt-1 min-w-0 space-y-1 text-[10px] leading-3 sm:mt-2 sm:text-xs sm:leading-4">
@@ -295,8 +331,8 @@ export default function CalendarPage() {
                               </div>
                             );
                           })
-                        ) : holidayLabel ? (
-                          <p className="truncate text-emerald-700">{holidayLabel}</p>
+                        ) : holidayLabel || schoolVacationLabel ? (
+                          <p className="truncate text-emerald-700">{holidayLabel ?? schoolVacationLabel}</p>
                         ) : (
                           <p className="text-slate-500">Libre</p>
                         )}
