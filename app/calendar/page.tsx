@@ -263,7 +263,7 @@ export default function CalendarPage() {
             </button>
           </div>
 
-          <section className="-mx-1 rounded-3xl border border-slate-200 bg-white p-2 shadow-soft sm:mx-0 sm:p-5">
+          <section className="-mx-1 rounded-3xl border border-slate-200 bg-white p-1 shadow-soft sm:mx-0 sm:p-3">
             <div className="mb-4 flex flex-col gap-3">
               <h3 className="text-lg font-semibold capitalize text-slate-900 sm:text-xl">{monthLabel}</h3>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
@@ -328,7 +328,7 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
-                      className={`min-h-[108px] border p-1 text-left transition sm:min-h-[136px] sm:p-1.5 ${
+                      className={`min-h-[81px] border p-1 text-left transition sm:min-h-[102px] sm:p-1.5 ${
                         familyPeriod
                           ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'}`
                           : holidayLabel || schoolVacationLabel
@@ -355,13 +355,13 @@ export default function CalendarPage() {
                   const style = getFamilyStyle(period.family);
                   const setting = familySettings.find((item) => item.family === period.family);
                   const position = getBarPosition(period.start_date, period.end_date, week);
-                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg shadow-sm" style={{ ...position, top: `calc(1.75rem + ${periodIndex} * 1.5rem)`, backgroundColor: setting?.bg_color ?? style.background }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
+                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg shadow-sm" style={{ ...position, top: `calc(1.6rem + ${periodIndex} * 1.25rem)`, backgroundColor: setting?.bg_color ?? style.background }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
                 })}
                 {weekReservations.map((reservation, reservationIndex) => {
                   const style = getFamilyStyle(reservation.user_family);
                   const position = getBarPosition(reservation.start_date, reservation.end_date, week);
                   const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
-                  return <div key={`reservation-bar-${weekIndex}-${reservation.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg border-2 px-1 py-0.5 text-[9px] font-bold leading-3 shadow-sm sm:px-1.5 sm:text-[11px] sm:leading-4" style={{ ...position, top: `calc(4.25rem + ${reservationIndex} * 1.5rem)`, backgroundColor: style.background, borderColor: style.border, color: style.text }} title={`${person} · ${formatDate(reservation.start_date)} → ${formatDate(reservation.end_date)}`}><span className="block truncate">{person}</span></div>;
+                  return <div key={`reservation-bar-${weekIndex}-${reservation.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg border-2 px-1 py-0.5 text-[9px] font-bold leading-3 shadow-sm sm:px-1.5 sm:text-[11px] sm:leading-4" style={{ ...position, top: `calc(3.75rem + ${reservationIndex} * 1.25rem)`, backgroundColor: style.background, borderColor: style.border, color: style.text }} title={`${person} · ${formatDate(reservation.start_date)} → ${formatDate(reservation.end_date)}`}><span className="block truncate">{person}</span></div>;
                 })}
                 </div>;
               })}
