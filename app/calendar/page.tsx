@@ -246,12 +246,12 @@ export default function CalendarPage() {
             <div className="mb-4 flex flex-col gap-3">
               <h3 className="text-lg font-semibold capitalize text-slate-900 sm:text-xl">{monthLabel}</h3>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                <h4 className="text-sm font-semibold text-slate-900">Demandes du planning JPEG</h4>
+                <h4 className="text-sm font-semibold text-slate-900">Légende du calendrier</h4>
                 <p className="mt-1 text-xs leading-5 text-slate-600 sm:text-sm">
-                  Intérieur de la case : couleur de la famille ayant une réservation.
+                  Les couleurs indiquent la famille concernée.
                 </p>
                 <p className="text-xs leading-5 text-slate-600 sm:text-sm">
-                  Encadrement extérieur : planning « Programme familial » issu du JPEG envoyé par Laurent.
+                  Les encadrés indiquent les périodes du planning familial.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-700">
                   <span className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5">Vacances scolaires - zone C</span>
