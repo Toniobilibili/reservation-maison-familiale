@@ -8,6 +8,7 @@ import { useAuth } from '@/components/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
 import { formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
+import { ReservationCard } from '@/components/ReservationCard';
 
 const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
@@ -185,6 +186,9 @@ export default function BookPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ start_date: '', end_date: '', guests: 2, comment: '' });
 
   useEffect(() => {
     async function loadReservations() {
@@ -229,6 +233,48 @@ export default function BookPage() {
 
     return map;
   }, [reservations]);
+
+  function startEditing(reservation: Reservation) {
+    setEditingId(reservation.id);
+    setEditForm({ start_date: reservation.start_date, end_date: reservation.end_date, guests: reservation.guests, comment: reservation.comment ?? '' });
+    setError(null);
+  }
+
+  async function deleteReservation(id: string) {
+    if (!user || !window.confirm('Supprimer cette réservation ?')) return;
+    setDeletingId(id);
+    const { data, error: deleteError } = await supabase.from('reservations').delete().eq('id', id).eq('user_id', user.id).select('id');
+    if (deleteError) setError(deleteError.code === '42501' ? 'Supabase bloque la suppression. Exécutez la migration SQL des droits de suppression.' : deleteError.message);
+    else if (!data?.length) setError('Vous ne pouvez supprimer que vos propres réservations.');
+    else {
+      setReservations((current) => current.filter((reservation) => reservation.id !== id));
+      setSuccess('Réservation supprimée.');
+    }
+    setDeletingId(null);
+  }
+
+  async function updateReservation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingId || !user) return;
+    setError(null);
+    if (new Date(editForm.end_date) <= new Date(editForm.start_date)) {
+      setError("La date de départ doit être après la date d'arrivée.");
+      return;
+    }
+    setLoading(true);
+    const { data: conflicts } = await supabase.from('reservations').select('id').neq('id', editingId).neq('status', 'rejected').lte('start_date', editForm.end_date).gte('end_date', editForm.start_date);
+    if (conflicts?.length) setError('Cette période chevauche une réservation existante.');
+    else {
+      const { data, error: updateError } = await supabase.from('reservations').update({ start_date: editForm.start_date, end_date: editForm.end_date, guests: editForm.guests, comment: editForm.comment }).eq('id', editingId).eq('user_id', user.id).select('id, start_date, end_date, status, guests, comment, user_id, created_at, updated_at').single();
+      if (updateError) setError(updateError.message);
+      else if (data) {
+        setReservations((current) => current.map((reservation) => reservation.id === editingId ? { ...reservation, ...data } : reservation));
+        setEditingId(null);
+        setSuccess('Réservation modifiée.');
+      }
+    }
+    setLoading(false);
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -338,13 +384,7 @@ export default function BookPage() {
             <h2 className="text-lg font-semibold text-slate-900">Réservations déjà faites</h2>
             <p className="mt-1 text-sm text-slate-600">Les dates validées apparaissent avec la couleur de chaque famille.</p>
           </div>
-          {reservations.length === 0 ? <p className="text-sm text-slate-600">Aucune réservation validée.</p> : reservations.map((reservation) => {
-            const familyStyle = getFamilyStyle(reservation.user_family);
-            return <div key={reservation.id} className={`rounded-2xl border p-3 ${familyStyle.cell}`} style={getFamilyVisualStyle(reservation.user_family)}>
-              <p className="text-base font-semibold"><span className="font-bold">{familyStyle.label}</span> <span className="opacity-80">·</span> {reservation.user_first_name ?? reservation.user_full_name}</p>
-              <p className="text-sm">{formatDate(reservation.start_date)} → {formatDate(reservation.end_date)}</p>
-            </div>;
-          })}
+          {reservations.length === 0 ? <p className="text-sm text-slate-600">Aucune réservation validée.</p> : reservations.map((reservation) => <div key={reservation.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><ReservationCard reservation={reservation} />{reservation.user_id === user?.id ? editingId === reservation.id ? <form onSubmit={updateReservation} className="mt-3 grid gap-2 sm:grid-cols-4"><input type="date" value={editForm.start_date} onChange={(event) => setEditForm({ ...editForm, start_date: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" required /><input type="date" value={editForm.end_date} onChange={(event) => setEditForm({ ...editForm, end_date: event.target.value })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" required /><input type="number" min={1} max={99} value={editForm.guests} onChange={(event) => setEditForm({ ...editForm, guests: Number(event.target.value) })} className="rounded-xl border border-slate-200 px-3 py-2 text-sm" required /><input value={editForm.comment} onChange={(event) => setEditForm({ ...editForm, comment: event.target.value })} placeholder="Commentaire" className="rounded-xl border border-slate-200 px-3 py-2 text-sm" /><div className="flex gap-2 sm:col-span-4"><button type="submit" disabled={loading} className="rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Enregistrer</button><button type="button" onClick={() => setEditingId(null)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold">Annuler</button></div></form> : <div className="mt-3 flex gap-2"><button type="button" onClick={() => startEditing(reservation)} className="rounded-xl border border-brand-200 px-3 py-2 text-sm font-semibold text-brand-700">Modifier</button><button type="button" onClick={() => deleteReservation(reservation.id)} disabled={deletingId === reservation.id} className="rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700">{deletingId === reservation.id ? 'Suppression...' : 'Supprimer'}</button></div> : null}</div>)}
         </section>
       </AppShell>
     </ProtectedPage>
