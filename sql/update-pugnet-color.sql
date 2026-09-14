@@ -1,7 +1,7 @@
 -- Met a jour la couleur de PUGNET dans une base deja configuree.
 update public.family_settings
-set bg_color = '#ffedd5',
-    border_color = '#ea580c',
-    text_color = '#9a3412',
+set bg_color = '#fff7ed',
+    border_color = '#f97316',
+    text_color = '#c2410c',
     updated_at = now()
 where family = 'PUGNET';

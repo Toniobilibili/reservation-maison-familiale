@@ -61,7 +61,7 @@ create table if not exists public.family_settings (
 
 insert into public.family_settings (family, label, bg_color, border_color, text_color)
 values
-  ('PUGNET', 'PUGNET', '#ffedd5', '#ea580c', '#9a3412'),
+  ('PUGNET', 'PUGNET', '#fff7ed', '#f97316', '#c2410c'),
   ('PLAGNOL', 'PLAGNOL', '#f3e8ff', '#7e22ce', '#581c87'),
   ('NGUYEN', 'NGUYEN', '#fef3c7', '#ca8a04', '#713f12'),
   ('BRETEAU', 'BRETEAU', '#e0f2fe', '#0284c7', '#0c4a6e')

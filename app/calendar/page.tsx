@@ -327,7 +327,7 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
-                      className={`min-h-[150px] border p-1 text-left transition sm:min-h-[188px] sm:p-2 ${
+                      className={`min-h-[126px] border p-1 text-left transition sm:min-h-[156px] sm:p-2 ${
                         familyPeriod
                           ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'}`
                           : holidayLabel || schoolVacationLabel
