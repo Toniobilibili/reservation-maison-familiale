@@ -330,7 +330,7 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
-                      className={`min-h-[112px] border p-1 text-left transition sm:min-h-[148px] sm:p-2 ${
+                      className={`min-h-[150px] border p-1 text-left transition sm:min-h-[188px] sm:p-2 ${
                         familyPeriod
                           ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'} border-y-2`
                           : holidayLabel || schoolVacationLabel
@@ -357,26 +357,26 @@ export default function CalendarPage() {
                               </div>
                             );
                           })
-                        ) : !hasMultiDayPeriod && (holidayLabel || schoolVacationLabel) ? (
+                        ) : !hasMultiDayPeriod && !hasMultiDayReservation && (holidayLabel || schoolVacationLabel) ? (
                           <p className="truncate text-emerald-700">{holidayLabel ?? schoolVacationLabel}</p>
-                        ) : (
+                        ) : !hasMultiDayPeriod && !hasMultiDayReservation ? (
                           <p className="text-slate-500">Libre</p>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   );
                 })}
-                {weekPeriods.map((period) => {
+                {weekPeriods.map((period, periodIndex) => {
                   const style = getFamilyStyle(period.family);
                   const setting = familySettings.find((item) => item.family === period.family);
                   const position = getBarPosition(period.start_date, period.end_date, week);
-                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute top-8 z-10 overflow-hidden rounded-lg border-2 px-1.5 py-1 text-[9px] font-bold leading-3 shadow-sm sm:px-2 sm:text-[11px] sm:leading-4" style={{ ...position, backgroundColor: setting?.bg_color ?? style.background, borderColor: setting?.border_color ?? style.border, color: setting?.text_color ?? style.text }} title={`${period.family} · ${period.label}`}><span className="block truncate">{period.family} · {period.label}</span></div>;
+                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg border-2 px-1.5 py-1 text-[9px] font-bold leading-3 shadow-sm sm:px-2 sm:text-[11px] sm:leading-4" style={{ ...position, top: `calc(2rem + ${periodIndex} * 1.7rem)`, backgroundColor: setting?.bg_color ?? style.background, borderColor: setting?.border_color ?? style.border, color: setting?.text_color ?? style.text }} title={`${period.family} · ${period.label}`}><span className="block truncate">{period.family} · {period.label}</span></div>;
                 })}
-                {weekReservations.map((reservation) => {
+                {weekReservations.map((reservation, reservationIndex) => {
                   const style = getFamilyStyle(reservation.user_family);
                   const position = getBarPosition(reservation.start_date, reservation.end_date, week);
                   const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
-                  return <div key={`reservation-bar-${weekIndex}-${reservation.id}`} className="pointer-events-none absolute top-[4.5rem] z-10 overflow-hidden rounded-lg border-2 px-1.5 py-1 text-[9px] font-bold leading-3 shadow-sm sm:px-2 sm:text-[11px] sm:leading-4" style={{ ...position, backgroundColor: style.background, borderColor: style.border, color: style.text }} title={`${person} · ${formatDate(reservation.start_date)} → ${formatDate(reservation.end_date)}`}><span className="block truncate">{person} · {reservation.guests} pers.</span></div>;
+                  return <div key={`reservation-bar-${weekIndex}-${reservation.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg border-2 px-1.5 py-1 text-[9px] font-bold leading-3 shadow-sm sm:px-2 sm:text-[11px] sm:leading-4" style={{ ...position, top: `calc(5rem + ${reservationIndex} * 1.7rem)`, backgroundColor: style.background, borderColor: style.border, color: style.text }} title={`${person} · ${formatDate(reservation.start_date)} → ${formatDate(reservation.end_date)}`}><span className="block truncate">{person} · {reservation.guests} pers.</span></div>;
                 })}
                 </div>;
               })}
