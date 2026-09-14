@@ -4,6 +4,8 @@
 
 drop policy if exists "Reservations: delete admin only" on public.reservations;
 drop policy if exists "Reservations: delete own or admin" on public.reservations;
+drop policy if exists "Reservations: delete own" on public.reservations;
+drop policy if exists "Reservations: admin delete all" on public.reservations;
 
 grant delete on table public.reservations to authenticated;
 
