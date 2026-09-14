@@ -231,7 +231,9 @@ export default function BookPage() {
       .select('id');
 
     if (deleteError) {
-      setError(deleteError.message);
+      setError(deleteError.code === '42501'
+        ? 'Supabase bloque la suppression. Un administrateur doit exécuter sql/fix-reservation-delete-policy.sql dans Supabase SQL Editor.'
+        : deleteError.message);
     } else if (!deletedRows?.length) {
       setError('Suppression refusée par Supabase. Exécutez la migration SQL des droits de suppression.');
     } else {
