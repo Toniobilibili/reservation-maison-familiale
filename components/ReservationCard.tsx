@@ -1,6 +1,7 @@
 'use client';
 
 import type { Reservation } from '@/lib/types';
+import type { ReactNode } from 'react';
 import { formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
 
 const statusStyle: Record<string, string> = {
@@ -15,7 +16,7 @@ const statusLabel: Record<string, string> = {
   rejected: 'Refusée',
 };
 
-export function ReservationCard({ reservation }: { reservation: Reservation }) {
+export function ReservationCard({ reservation, actions }: { reservation: Reservation; actions?: ReactNode }) {
   const familyStyle = getFamilyStyle(reservation.user_family);
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
@@ -36,6 +37,7 @@ export function ReservationCard({ reservation }: { reservation: Reservation }) {
       <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
         {reservation.comment ? <p className="break-words">Commentaire : {reservation.comment}</p> : null}
       </div>
+      {actions ? <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">{actions}</div> : null}
     </article>
   );
 }
