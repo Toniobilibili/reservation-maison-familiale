@@ -327,7 +327,7 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
-                      className={`min-h-[126px] border p-1 text-left transition sm:min-h-[156px] sm:p-2 ${
+                      className={`min-h-[108px] border p-1 text-left transition sm:min-h-[136px] sm:p-1.5 ${
                         familyPeriod
                           ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'}`
                           : holidayLabel || schoolVacationLabel
@@ -340,7 +340,7 @@ export default function CalendarPage() {
                         <span className="text-xs font-semibold sm:text-sm">{day.getDate()}</span>
                         {holidayLabel ? <span className="hidden rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Férié</span> : null}
                       </div>
-                      <div className="mt-1 min-w-0 space-y-1 text-[10px] leading-3 sm:mt-2 sm:text-xs sm:leading-4">
+                      <div className="mt-0.5 min-w-0 space-y-0.5 text-[10px] leading-3 sm:mt-1 sm:text-xs sm:leading-4">
                         {!familyPeriod && (holidayLabel || schoolVacationLabel) ? (
                           <p className="truncate text-emerald-700">{holidayLabel ?? schoolVacationLabel}</p>
                         ) : !familyPeriod ? (
@@ -354,13 +354,13 @@ export default function CalendarPage() {
                   const style = getFamilyStyle(period.family);
                   const setting = familySettings.find((item) => item.family === period.family);
                   const position = getBarPosition(period.start_date, period.end_date, week);
-                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg shadow-sm" style={{ ...position, top: `calc(2rem + ${periodIndex} * 1.7rem)`, backgroundColor: setting?.bg_color ?? style.background }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
+                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg shadow-sm" style={{ ...position, top: `calc(1.75rem + ${periodIndex} * 1.5rem)`, backgroundColor: setting?.bg_color ?? style.background }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
                 })}
                 {weekReservations.map((reservation, reservationIndex) => {
                   const style = getFamilyStyle(reservation.user_family);
                   const position = getBarPosition(reservation.start_date, reservation.end_date, week);
                   const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
-                  return <div key={`reservation-bar-${weekIndex}-${reservation.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg border-2 px-1.5 py-1 text-[9px] font-bold leading-3 shadow-sm sm:px-2 sm:text-[11px] sm:leading-4" style={{ ...position, top: `calc(5rem + ${reservationIndex} * 1.7rem)`, backgroundColor: style.background, borderColor: style.border, color: style.text }} title={`${person} · ${formatDate(reservation.start_date)} → ${formatDate(reservation.end_date)}`}><span className="block truncate">{person}</span></div>;
+                  return <div key={`reservation-bar-${weekIndex}-${reservation.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg border-2 px-1 py-0.5 text-[9px] font-bold leading-3 shadow-sm sm:px-1.5 sm:text-[11px] sm:leading-4" style={{ ...position, top: `calc(4.25rem + ${reservationIndex} * 1.5rem)`, backgroundColor: style.background, borderColor: style.border, color: style.text }} title={`${person} · ${formatDate(reservation.start_date)} → ${formatDate(reservation.end_date)}`}><span className="block truncate">{person}</span></div>;
                 })}
                 </div>;
               })}
