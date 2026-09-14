@@ -216,19 +216,30 @@ export default function CalendarPage() {
           </div>
 
           <section className="-mx-1 rounded-3xl border border-slate-200 bg-white p-2 shadow-soft sm:mx-0 sm:p-5">
-            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="mb-4 flex flex-col gap-3">
               <h3 className="text-lg font-semibold capitalize text-slate-900 sm:text-xl">{monthLabel}</h3>
-              <div className="flex flex-wrap gap-2 text-sm text-slate-600">
-                {families.map((family) => {
-                  const familyStyle = getFamilyStyle(family);
-                  const familySetting = familySettings.find((setting) => setting.family === family);
-                  return (
-                    <span key={family} className={`rounded-full px-3 py-1 ${familyStyle.badge}`} style={familySetting ? { backgroundColor: familySetting.border_color, color: familySetting.bg_color } : undefined}>
-                      {familyStyle.label}
-                    </span>
-                  );
-                })}
-                <span className="rounded-full bg-emerald-100 px-3 py-1 text-emerald-800">Férié</span>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                <h4 className="text-sm font-semibold text-slate-900">Demandes du planning JPEG</h4>
+                <p className="mt-1 text-xs leading-5 text-slate-600 sm:text-sm">
+                  Intérieur de la case : couleur de la famille ayant une réservation.
+                </p>
+                <p className="text-xs leading-5 text-slate-600 sm:text-sm">
+                  Encadrement extérieur : planning « Programme familial » issu du JPEG envoyé par Laurent.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-sm text-slate-600">
+                  {families.map((family) => {
+                    const familyStyle = getFamilyStyle(family);
+                    const familySetting = familySettings.find((setting) => setting.family === family);
+                    const visualStyle = familySetting
+                      ? { borderColor: familySetting.border_color, color: familySetting.text_color }
+                      : { borderColor: familyStyle.border, color: familyStyle.text };
+                    return (
+                      <span key={family} className="rounded-xl border-2 bg-white px-3 py-1.5 text-xs font-semibold" style={visualStyle}>
+                        {familyStyle.label}
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -276,9 +287,10 @@ export default function CalendarPage() {
                         {isReserved ? (
                           dayReservations.map((reservation) => {
                             const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
+                            const reservationFamily = reservation.user_family;
 
                             return (
-                              <div key={reservation.id} className="rounded-lg border bg-white/75 px-1.5 py-1 shadow-sm" style={getFamilyVisualStyle(reservation.user_family)} title={person}>
+                              <div key={reservation.id} className="rounded-lg border px-1.5 py-1 shadow-sm" style={getFamilyVisualStyle(reservationFamily)} title={person}>
                                 <p className="truncate font-bold">{person}</p>
                               </div>
                             );

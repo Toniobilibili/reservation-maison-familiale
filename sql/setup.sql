@@ -155,9 +155,17 @@ create policy "Reservations: update admin only" on public.reservations
   for update
   using (public.is_admin());
 
-create policy "Reservations: delete own or admin" on public.reservations
+grant delete on table public.reservations to authenticated;
+
+create policy "Reservations: delete own" on public.reservations
   for delete
-  using (user_id = auth.uid() or public.is_admin());
+  to authenticated
+  using (user_id = auth.uid());
+
+create policy "Reservations: admin delete all" on public.reservations
+  for delete
+  to authenticated
+  using (public.is_admin());
 
 drop policy if exists "Family periods: authenticated read" on public.family_periods;
 drop policy if exists "Family periods: admin write" on public.family_periods;

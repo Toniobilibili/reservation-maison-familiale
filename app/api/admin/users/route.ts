@@ -8,6 +8,44 @@ type CreateUserBody = {
   role?: 'admin' | 'member';
 };
 
+function createAdminClients(request: NextRequest) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const authHeader = request.headers.get('authorization');
+  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+
+  if (!supabaseUrl || !supabaseAnonKey || !serviceRoleKey || !token) {
+    return { error: 'Configuration Supabase ou session admin incomplète.', status: 401 };
+  }
+
+  const userClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const adminClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  return { userClient, adminClient, token };
+}
+
+async function getAdminClients(request: NextRequest) {
+  const clients = createAdminClients(request);
+  if ('error' in clients) return clients;
+
+  const { data: authData, error: sessionError } = await clients.userClient.auth.getUser(clients.token);
+  if (sessionError || !authData.user) return { error: 'Session invalide.', status: 401 };
+
+  const { data: profile, error: profileError } = await clients.adminClient
+    .from('profiles')
+    .select('role')
+    .eq('id', authData.user.id)
+    .single();
+  if (profileError || profile?.role !== 'admin') return { error: 'Réservé aux administrateurs.', status: 403 };
+
+  return clients;
+}
+
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -109,4 +147,20 @@ export async function POST(request: NextRequest) {
       role,
     },
   });
+}
+
+export async function DELETE(request: NextRequest) {
+  const clients = await getAdminClients(request);
+  if ('error' in clients) return jsonError(clients.error ?? 'Session admin invalide.', clients.status);
+
+  const body = (await request.json().catch(() => ({}))) as { id?: string; all?: boolean };
+  const query = clients.adminClient.from('reservations').delete().select('id');
+  const result = body.all
+    ? await query.not('id', 'is', null)
+    : body.id
+    ? await query.eq('id', body.id)
+    : { data: null, error: { message: 'Identifiant de réservation manquant.' } };
+
+  if (result.error) return jsonError(result.error.message, 500);
+  return NextResponse.json({ deleted: result.data?.length ?? 0 });
 }

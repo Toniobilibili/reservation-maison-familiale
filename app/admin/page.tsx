@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { createWorker } from 'tesseract.js';
 import { AppShell } from '@/components/AppShell';
 import { ProtectedPage } from '@/components/ProtectedPage';
 import { useAuth } from '@/components/AuthContext';
@@ -10,6 +11,75 @@ import type { Reservation } from '@/lib/types';
 import type { FamilyPeriod, FamilySetting, PlanningImport } from '@/lib/types';
 import { ReservationCard } from '@/components/ReservationCard';
 import { defaultFamilyPeriods } from '@/lib/planning';
+
+type OcrPeriod = Omit<FamilyPeriod, 'id' | 'created_at' | 'updated_at'> & { id: string };
+
+function normalizedLineMonth(line: string, monthNumbers: Record<string, number>) {
+  const normalizedLine = line.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  return Object.entries(monthNumbers).find(([month]) => normalizedLine.includes(month.normalize('NFD').replace(/[\u0300-\u036f]/g, '')))?.[1];
+}
+
+function parseOcrPeriods(text: string, year: number, families: string[]): OcrPeriod[] {
+  const normalizedFamilies = families.map((family) => ({ original: family, normalized: family.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase() }));
+  const periods: OcrPeriod[] = [];
+  const datePattern = /(\d{1,2})\s*(?:[./-]\s*(\d{1,2})(?:[./-]\s*(\d{2,4}))?|\s*(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s*(\d{2,4})?)/gi;
+  const monthNumbers: Record<string, number> = {
+    janvier: 1,
+    février: 2,
+    fevrier: 2,
+    mars: 3,
+    avril: 4,
+    mai: 5,
+    juin: 6,
+    juillet: 7,
+    août: 8,
+    aout: 8,
+    septembre: 9,
+    octobre: 10,
+    novembre: 11,
+    décembre: 12,
+    decembre: 12,
+  };
+
+  text.split(/\r?\n/).forEach((line, index) => {
+    const matches = [...line.matchAll(datePattern)];
+    const buildDate = (day: string, month: number, yearText?: string) => {
+      const parsedYear = yearText ? Number(yearText.length === 2 ? `20${yearText}` : yearText) : year;
+      return `${parsedYear}-${String(month).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`;
+    };
+    const parenthesizedDates = line.match(/\((\d{1,2}(?:\/\d{1,2}){1,3})\)/)?.[1]?.split('/');
+    const contextMonth = normalizedLineMonth(line, monthNumbers);
+    const normalizedLine = line.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    let startDate = '';
+    let endDate = '';
+    if (parenthesizedDates && parenthesizedDates.length >= 2 && contextMonth) {
+      startDate = buildDate(parenthesizedDates[0], contextMonth);
+      endDate = buildDate(parenthesizedDates[parenthesizedDates.length - 1], contextMonth);
+    } else {
+      if (matches.length < 2) return;
+      const toDate = (match: RegExpMatchArray) => {
+        const month = match[2] ? Number(match[2]) : monthNumbers[match[4].toLowerCase()];
+        return buildDate(match[1], month, match[3] ?? match[5]);
+      };
+      startDate = toDate(matches[0]);
+      endDate = toDate(matches[1]);
+    }
+    const textAfterColon = line.match(/[:：]\s*([^()]+)/)?.[1]?.trim() ?? '';
+    const detectedFamily = textAfterColon.replace(/[.,;:]+$/, '').trim();
+    const family = normalizedFamilies.find((candidate) => normalizedLine.includes(candidate.normalized))?.original ?? detectedFamily;
+    const label = line
+      .replace(datePattern, '')
+      .replace(/[:：].*$/, '')
+      .replace(new RegExp(families.join('|'), 'ig'), '')
+      .replace(/[|;,:-]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^_?du\s+au$/i, '')
+      .trim() || `Période importée ${index + 1}`;
+    if (startDate <= endDate) periods.push({ id: `ocr-${index}`, year, family, label, start_date: startDate, end_date: endDate });
+  });
+  return periods;
+}
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -32,6 +102,11 @@ export default function AdminPage() {
   const [planningYear, setPlanningYear] = useState('2027');
   const [familySettings, setFamilySettings] = useState<FamilySetting[]>([]);
   const [planningImports, setPlanningImports] = useState<PlanningImport[]>([]);
+  const [ocrPeriods, setOcrPeriods] = useState<OcrPeriod[]>([]);
+  const [ocrText, setOcrText] = useState('');
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState(0);
+  const [ocrError, setOcrError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadAll() {
@@ -95,27 +170,58 @@ export default function AdminPage() {
     setPeriods((current) => current.filter((period) => period.id !== id));
   }
 
-  function handlePlanningImage(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePlanningImage(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
     setPlanningFileName(file.name);
+    setOcrPeriods([]);
+    setOcrText('');
+    setOcrError(null);
+    setOcrLoading(true);
+    setOcrProgress(0);
     const reader = new FileReader();
     reader.onload = () => setPlanningImage(String(reader.result));
     reader.readAsDataURL(file);
+    try {
+      const worker = await createWorker('fra', 1, { logger: (message) => setOcrProgress(Math.round((message.progress ?? 0) * 100)) });
+      const result = await worker.recognize(file);
+      await worker.terminate();
+      setOcrText(result.data.text);
+      const families = [...new Set([...periods, ...familySettings].map((item) => item.family).filter(Boolean))];
+      setOcrPeriods(parseOcrPeriods(result.data.text, Number(planningYear), families));
+    } catch (error) {
+      setOcrError(error instanceof Error ? error.message : 'La lecture OCR a échoué.');
+    } finally {
+      setOcrLoading(false);
+    }
   }
 
   async function savePlanningImport() {
     if (!planningImage || !planningFileName || !user) return;
+    const extractedPeriods = (ocrPeriods.length > 0 ? ocrPeriods : periods
+      .filter((period) => period.year === Number(planningYear) && !period.id.startsWith(String(planningYear))))
+      .map(({ id, ...period }) => period);
     const { data, error } = await supabase.from('planning_imports').insert({
       year: Number(planningYear),
       file_name: planningFileName,
       image_url: planningImage,
-      status: 'draft',
-      extracted_periods: [],
+      status: extractedPeriods.length > 0 ? 'validated' : 'draft',
+      extracted_periods: extractedPeriods,
       created_by: user.id,
     }).select('id, year, file_name, image_url, status, extracted_periods, created_by, created_at').single();
     if (data) setPlanningImports((current) => [data as PlanningImport, ...current]);
-    setPeriodMessage(error ? error.message : 'Import enregistré en brouillon. Corrigez les périodes ci-dessus puis validez-les.');
+    if (!error && extractedPeriods.length > 0) {
+      const { error: deleteError } = await supabase.from('family_periods').delete().eq('year', Number(planningYear));
+      const { data: syncedPeriods, error: syncError } = deleteError
+        ? { data: null, error: deleteError }
+        : await supabase.from('family_periods').insert(extractedPeriods).select('id, year, family, label, start_date, end_date, created_at, updated_at');
+      if (syncError) {
+        setPeriodMessage(syncError.message);
+        return;
+      }
+      if (syncedPeriods) setPeriods((current) => [...current.filter((period) => period.year !== Number(planningYear)), ...(syncedPeriods as FamilyPeriod[])]);
+    }
+    setPeriodMessage(error ? error.message : extractedPeriods.length > 0 ? 'Import enregistré et planning synchronisé automatiquement.' : 'Import enregistré en brouillon. Ajoutez les périodes dans le planning avant de synchroniser le calendrier.');
   }
 
   async function saveFamilySetting(setting: FamilySetting) {
@@ -147,11 +253,43 @@ export default function AdminPage() {
 
     setReservationError(null);
     setActionLoading(id);
-    const { error } = await supabase.from('reservations').delete().eq('id', id);
-    if (error) {
-      setReservationError(error.message);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const response = await fetch('/api/admin/users', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${sessionData.session?.access_token ?? ''}` },
+      body: JSON.stringify({ id }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setReservationError(result.error ?? 'Impossible de supprimer la réservation.');
+    } else if (!result.deleted) {
+      setReservationError('La réservation est introuvable ou déjà supprimée.');
     } else {
       setReservations((current) => current.filter((reservation) => reservation.id !== id));
+    }
+    setActionLoading(null);
+  }
+
+  async function removeAllReservations() {
+    if (reservations.length === 0 || !window.confirm(`Supprimer les ${reservations.length} réservations ? Cette action est irréversible.`)) {
+      return;
+    }
+
+    setReservationError(null);
+    setActionLoading('all');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const response = await fetch('/api/admin/users', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${sessionData.session?.access_token ?? ''}` },
+      body: JSON.stringify({ all: true }),
+    });
+    const result = await response.json();
+    if (!response.ok) {
+      setReservationError(result.error ?? 'Impossible de supprimer les réservations.');
+    } else if (!result.deleted) {
+      setReservationError('Aucune réservation supprimée.');
+    } else {
+      setReservations([]);
     }
     setActionLoading(null);
   }
@@ -202,7 +340,6 @@ export default function AdminPage() {
   }
 
   const pending = reservations.filter((reservation) => reservation.status === 'pending');
-  const history = reservations.filter((reservation) => reservation.status !== 'pending');
 
   return (
     <ProtectedPage adminOnly>
@@ -217,7 +354,10 @@ export default function AdminPage() {
               Gérer les souhaits
             </a>
             <a href="#pending-reservations" className="flex min-h-11 shrink-0 items-center rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
-              Réservations
+              Demandes en attente
+            </a>
+            <a href="#all-reservations" className="flex min-h-11 shrink-0 items-center rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
+              Toutes les réservations
             </a>
           </nav>
 
@@ -309,13 +449,17 @@ export default function AdminPage() {
 
           <section id="planning-import" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
             <h2 className="text-lg font-semibold text-slate-900">Importer un planning JPEG</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Importez une image des souhaits familiaux. Elle sert à préparer des périodes de familles, pas à créer des réservations pour des personnes. L’image est prévisualisée et conservée en brouillon ; aucun planning existant n’est écrasé.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Importez le JPEG du programme familial de Laurent. Le texte est reconnu localement, puis les dates détectées restent modifiables avant la synchronisation du planning.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr]">
               <label className="block text-sm font-medium text-slate-700">Année<input type="number" value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <label className="block text-sm font-medium text-slate-700">Image JPEG<input type="file" accept="image/jpeg,image/jpg" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
             </div>
             {planningImage ? <Image src={planningImage} alt={`Aperçu du planning ${planningYear}`} width={1200} height={800} unoptimized className="mt-4 max-h-80 w-full rounded-2xl border border-slate-200 object-contain" /> : null}
-            <button type="button" onClick={savePlanningImport} disabled={!planningImage} className="mt-4 min-h-11 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Enregistrer le brouillon</button>
+            {ocrLoading ? <p className="mt-4 text-sm text-slate-600">Lecture OCR en cours... {ocrProgress}%</p> : null}
+            {ocrError ? <p className="mt-4 text-sm text-rose-600">{ocrError}</p> : null}
+            {ocrText ? <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-semibold text-slate-700">Afficher le texte détecté</summary><pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs text-slate-600">{ocrText}</pre></details> : null}
+            {ocrPeriods.length > 0 ? <div className="mt-4 space-y-3"><h3 className="text-sm font-semibold text-slate-900">Périodes détectées à vérifier</h3>{ocrPeriods.map((period, index) => <div key={period.id} className="grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:grid-cols-4"><input aria-label="Famille détectée" value={period.family} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, family: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="Famille" /><input aria-label="Libellé détecté" value={period.label} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="Libellé" /><input aria-label="Date de début détectée" type="date" value={period.start_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, start_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /><input aria-label="Date de fin détectée" type="date" value={period.end_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, end_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /></div>)}</div> : null}
+            <button type="button" onClick={savePlanningImport} disabled={!planningImage || ocrLoading} className="mt-4 min-h-11 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Enregistrer le planning détecté</button>
             {planningImports.length > 0 ? <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-slate-900">Historique des imports</h3>{planningImports.map((planningImport) => <div key={planningImport.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>{planningImport.year} · {planningImport.file_name}</span><span className="font-semibold">{planningImport.status === 'validated' ? 'Validé' : 'Brouillon'}</span></div>)}</div> : null}
           </section>
 
@@ -365,25 +509,38 @@ export default function AdminPage() {
             </div>
           )}
 
-          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
-            <h2 className="text-lg font-semibold text-slate-900">Historique</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Toutes les réservations validées ou refusées.</p>
+          <section id="all-reservations" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Toutes les réservations</h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">Consultez et supprimez chaque réservation, ou videz toute la liste.</p>
+              </div>
+              <button
+                type="button"
+                onClick={removeAllReservations}
+                disabled={loading || reservations.length === 0 || actionLoading === 'all'}
+                className="min-h-11 rounded-2xl border border-rose-200 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {actionLoading === 'all' ? 'Suppression...' : 'Tout supprimer'}
+              </button>
+            </div>
             {reservationError ? <p className="mt-3 text-sm text-rose-600">Impossible de supprimer la réservation : {reservationError}</p> : null}
           </section>
 
-          {loading ? null : history.length === 0 ? (
+          {loading ? null : reservations.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600 shadow-soft">
-              Aucune réservation historique.
+              Aucune réservation.
             </div>
           ) : (
             <div className="space-y-4">
-              {history.map((reservation) => (
+              {reservations.map((reservation) => (
                 <div key={reservation.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3 shadow-soft sm:p-4">
                   <ReservationCard reservation={reservation} />
                   <div className="mt-4">
                     <button
+                      type="button"
                       onClick={() => removeReservation(reservation.id)}
-                      disabled={actionLoading === reservation.id}
+                      disabled={actionLoading === reservation.id || actionLoading === 'all'}
                       className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60 sm:w-auto"
                     >
                       Supprimer

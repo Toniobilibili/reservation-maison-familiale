@@ -223,14 +223,17 @@ export default function BookPage() {
     }
 
     setDeletingId(id);
-    const { error: deleteError } = await supabase
+    const { data: deletedRows, error: deleteError } = await supabase
       .from('reservations')
       .delete()
       .eq('id', id)
-      .eq('user_id', user?.id);
+      .eq('user_id', user?.id)
+      .select('id');
 
     if (deleteError) {
       setError(deleteError.message);
+    } else if (!deletedRows?.length) {
+      setError('Suppression refusée par Supabase. Exécutez la migration SQL des droits de suppression.');
     } else {
       setMyReservations((current) => current.filter((reservation) => reservation.id !== id));
       setReservations((current) => current.filter((reservation) => reservation.id !== id));
