@@ -13,7 +13,7 @@ const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
 
 const statusLabel: Record<string, string> = {
   approved: 'Validée',
-  pending: 'En attente',
+  pending: 'Validée',
   rejected: 'Refusée',
 };
 
@@ -294,7 +294,7 @@ export default function BookPage() {
     const { data: conflicts, error: conflictError } = await supabase
       .from('reservations')
       .select('id')
-      .eq('status', 'approved')
+      .neq('status', 'rejected')
       .lte('start_date', endDate)
       .gte('end_date', startDate);
 
@@ -316,7 +316,7 @@ export default function BookPage() {
       end_date: endDate,
       guests,
       comment,
-      status: 'pending',
+      status: 'approved',
     });
 
     if (insertError) {
@@ -325,7 +325,7 @@ export default function BookPage() {
       return;
     }
 
-    setSuccess('Demande envoyée. Elle est en attente de validation.');
+    setSuccess('Réservation enregistrée.');
     setStartDate('');
     setEndDate('');
     setGuests(2);

@@ -19,7 +19,7 @@ create table if not exists public.reservations (
   end_date date not null,
   guests integer not null check (guests > 0),
   comment text,
-  status text not null check (status in ('pending', 'approved', 'rejected')) default 'pending',
+  status text not null check (status in ('pending', 'approved', 'rejected')) default 'approved',
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()
 );
@@ -202,7 +202,7 @@ begin
   select count(*) into overlap_count
   from public.reservations
   where id <> coalesce(new.id, '00000000-0000-0000-0000-000000000000')
-    and status = 'approved'
+    and status <> 'rejected'
     and start_date <= new.end_date
     and end_date >= new.start_date;
 

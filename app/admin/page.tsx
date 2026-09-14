@@ -235,17 +235,6 @@ export default function AdminPage() {
     setPeriodMessage(error ? error.message : `Couleurs de ${setting.family} enregistrées.`);
   }
 
-  async function updateStatus(id: string, status: 'approved' | 'rejected') {
-    setActionLoading(id);
-    const { error } = await supabase.from('reservations').update({ status }).eq('id', id);
-    if (error) {
-      console.error(error.message);
-    } else {
-      setReservations((current) => current.map((reservation) => (reservation.id === id ? { ...reservation, status } : reservation)));
-    }
-    setActionLoading(null);
-  }
-
   async function removeReservation(id: string) {
     if (!window.confirm('Supprimer cette réservation ?')) {
       return;
@@ -339,8 +328,6 @@ export default function AdminPage() {
     setUserCreateLoading(false);
   }
 
-  const pending = reservations.filter((reservation) => reservation.status === 'pending');
-
   return (
     <ProtectedPage adminOnly>
       <AppShell title="Espace admin">
@@ -352,9 +339,6 @@ export default function AdminPage() {
             </a>
             <a href="#family-periods" className="flex min-h-11 shrink-0 items-center rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
               Gérer les souhaits
-            </a>
-            <a href="#pending-reservations" className="flex min-h-11 shrink-0 items-center rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
-              Demandes en attente
             </a>
             <a href="#all-reservations" className="flex min-h-11 shrink-0 items-center rounded-2xl px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50">
               Toutes les réservations
@@ -463,39 +447,14 @@ export default function AdminPage() {
             {planningImports.length > 0 ? <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-slate-900">Historique des imports</h3>{planningImports.map((planningImport) => <div key={planningImport.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>{planningImport.year} · {planningImport.file_name}</span><span className="font-semibold">{planningImport.status === 'validated' ? 'Validé' : 'Brouillon'}</span></div>)}</div> : null}
           </section>
 
-          <section id="pending-reservations" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
-            <div>
-              <h2 className="text-lg font-semibold text-slate-900">Demandes en attente</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600">Validez ou refusez les nouvelles demandes.</p>
-            </div>
-          </section>
-
           {loading ? (
-            <p className="text-sm text-slate-600">Chargement des demandes...</p>
-          ) : pending.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-center text-slate-600 shadow-soft">
-              Aucune demande en attente.
-            </div>
+            <p className="text-sm text-slate-600">Chargement des réservations...</p>
           ) : (
             <div className="space-y-4">
-              {pending.map((reservation) => (
+              {reservations.map((reservation) => (
                 <div key={reservation.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3 shadow-soft sm:p-4">
                   <ReservationCard reservation={reservation} />
                   <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap">
-                    <button
-                      onClick={() => updateStatus(reservation.id, 'approved')}
-                      disabled={actionLoading === reservation.id}
-                      className="rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                    >
-                      Valider
-                    </button>
-                    <button
-                      onClick={() => updateStatus(reservation.id, 'rejected')}
-                      disabled={actionLoading === reservation.id}
-                      className="rounded-2xl bg-rose-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60"
-                    >
-                      Refuser
-                    </button>
                     <button
                       onClick={() => removeReservation(reservation.id)}
                       disabled={actionLoading === reservation.id}
