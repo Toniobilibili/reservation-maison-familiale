@@ -34,7 +34,6 @@ export function ReservationCard({ reservation }: { reservation: Reservation }) {
         </span>
       </div>
       <div className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-        <p>Invités : {reservation.guests}</p>
         {reservation.comment ? <p className="break-words">Commentaire : {reservation.comment}</p> : null}
       </div>
     </article>

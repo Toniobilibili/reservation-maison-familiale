@@ -381,7 +381,7 @@ export default function BookPage() {
             <div key={reservation.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-slate-900">{formatDate(reservation.start_date)} → {formatDate(reservation.end_date)}</p>
-                <p className="mt-1 text-sm text-slate-600">{statusLabel[reservation.status]} · {reservation.guests} personne{reservation.guests > 1 ? 's' : ''}</p>
+                <p className="mt-1 text-sm text-slate-600">{statusLabel[reservation.status]}</p>
               </div>
               <button
                 type="button"
