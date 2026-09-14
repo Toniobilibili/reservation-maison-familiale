@@ -451,17 +451,19 @@ export default function AdminPage() {
             <div className="space-y-4">
               {reservations.map((reservation) => (
                 <div key={reservation.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3 shadow-soft sm:p-4">
-                  <ReservationCard reservation={reservation} />
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={() => removeReservation(reservation.id)}
-                      disabled={actionLoading === reservation.id || actionLoading === 'all'}
-                      className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60 sm:w-auto"
-                    >
-                      Supprimer
-                    </button>
-                  </div>
+                  <ReservationCard
+                    reservation={reservation}
+                    actions={(
+                      <button
+                        type="button"
+                        onClick={() => removeReservation(reservation.id)}
+                        disabled={actionLoading === reservation.id || actionLoading === 'all'}
+                        className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+                      >
+                        Supprimer
+                      </button>
+                    )}
+                  />
                 </div>
               ))}
             </div>
