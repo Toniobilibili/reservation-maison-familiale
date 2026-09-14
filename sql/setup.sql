@@ -137,8 +137,10 @@ drop policy if exists "Reservations: select member access" on public.reservation
 drop policy if exists "Reservations: insert own request" on public.reservations;
 drop policy if exists "Reservations: update admin only" on public.reservations;
 drop policy if exists "Reservations: update own" on public.reservations;
+drop policy if exists "Reservations: update authenticated" on public.reservations;
 drop policy if exists "Reservations: delete admin only" on public.reservations;
 drop policy if exists "Reservations: delete own or admin" on public.reservations;
+drop policy if exists "Reservations: delete authenticated" on public.reservations;
 
 create policy "Reservations: select member access" on public.reservations
   for select
@@ -162,6 +164,12 @@ create policy "Reservations: update own" on public.reservations
   using (user_id = auth.uid())
   with check (user_id = auth.uid());
 
+create policy "Reservations: update authenticated" on public.reservations
+  for update
+  to authenticated
+  using (auth.uid() is not null)
+  with check (auth.uid() is not null);
+
 grant delete on table public.reservations to authenticated;
 
 create policy "Reservations: delete own" on public.reservations
@@ -173,6 +181,11 @@ create policy "Reservations: admin delete all" on public.reservations
   for delete
   to authenticated
   using (public.is_admin());
+
+create policy "Reservations: delete authenticated" on public.reservations
+  for delete
+  to authenticated
+  using (auth.uid() is not null);
 
 drop policy if exists "Family periods: authenticated read" on public.family_periods;
 drop policy if exists "Family periods: admin write" on public.family_periods;
