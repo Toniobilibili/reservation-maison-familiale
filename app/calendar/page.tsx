@@ -51,6 +51,24 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+function daysBetween(start: Date, end: Date) {
+  return Math.round((end.getTime() - start.getTime()) / 86400000);
+}
+
+function getBarPosition(startDate: string, endDate: string, week: Date[]) {
+  const weekStart = week[0];
+  const weekEnd = week[6];
+  const start = parseDateKey(startDate) < weekStart ? weekStart : parseDateKey(startDate);
+  const end = parseDateKey(endDate) > weekEnd ? weekEnd : parseDateKey(endDate);
+  const offset = daysBetween(weekStart, start);
+  const span = daysBetween(start, end) + 1;
+
+  return {
+    left: `calc(${offset} * 14.2857% + 2px)`,
+    width: `calc(${span} * 14.2857% - 4px)`,
+  };
+}
+
 function getEasterSunday(year: number) {
   const a = year % 19;
   const b = Math.floor(year / 100);
@@ -285,9 +303,15 @@ export default function CalendarPage() {
               ))}
             </div>
 
-            <div className="grid grid-cols-7 gap-px sm:gap-1">
-              {grid.map((week, weekIndex) =>
-                week.map((day) => {
+            <div className="space-y-px sm:space-y-1">
+              {grid.map((week, weekIndex) => {
+                const weekStart = week[0];
+                const weekEnd = week[6];
+                const weekPeriods = familyPeriods.filter((period) => parseDateKey(period.start_date) <= weekEnd && parseDateKey(period.end_date) >= weekStart);
+                const weekReservations = reservations.filter((reservation) => reservation.status !== 'rejected' && parseDateKey(reservation.start_date) <= weekEnd && parseDateKey(reservation.end_date) >= weekStart);
+
+                return <div key={`week-${weekIndex}`} className="relative grid grid-cols-7 gap-px sm:gap-1">
+                {week.map((day) => {
                   const key = getDateKey(day);
                   const isCurrentMonth = day.getMonth() === monthIndex;
                   const holidayLabel = holidays[key];
@@ -300,11 +324,13 @@ export default function CalendarPage() {
                   const periodStart = isPeriodStart(familyPeriod, key);
                   const periodEnd = isPeriodEnd(familyPeriod, key);
                   const periodLabel = periodStart ? `${familyPeriod?.family} · ${familyPeriod?.label}` : null;
+                  const hasMultiDayReservation = dayReservations?.some((reservation) => reservation.start_date !== reservation.end_date);
+                  const hasMultiDayPeriod = Boolean(familyPeriod && familyPeriod.start_date !== familyPeriod.end_date);
 
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
-                      className={`min-h-[82px] border p-1 text-left transition sm:min-h-[122px] sm:p-2 ${
+                      className={`min-h-[112px] border p-1 text-left transition sm:min-h-[148px] sm:p-2 ${
                         familyPeriod
                           ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'} border-y-2`
                           : holidayLabel || schoolVacationLabel
@@ -318,9 +344,9 @@ export default function CalendarPage() {
                         {holidayLabel ? <span className="hidden rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Férié</span> : null}
                         {schoolVacationLabel ? <span className="hidden rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Zone C</span> : null}
                       </div>
-                      {periodLabel ? <p className="mt-1 truncate text-[8px] font-bold uppercase leading-3 sm:text-[10px]" title={periodLabel}>{periodLabel}</p> : null}
+                      {periodLabel && !hasMultiDayPeriod ? <p className="mt-1 truncate text-[8px] font-bold uppercase leading-3 sm:text-[10px]" title={periodLabel}>{periodLabel}</p> : null}
                       <div className="mt-1 min-w-0 space-y-1 text-[10px] leading-3 sm:mt-2 sm:text-xs sm:leading-4">
-                        {isReserved ? (
+                        {isReserved && !hasMultiDayReservation ? (
                           dayReservations.map((reservation) => {
                             const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
                             const reservationFamily = reservation.user_family;
@@ -331,7 +357,7 @@ export default function CalendarPage() {
                               </div>
                             );
                           })
-                        ) : holidayLabel || schoolVacationLabel ? (
+                        ) : !hasMultiDayPeriod && (holidayLabel || schoolVacationLabel) ? (
                           <p className="truncate text-emerald-700">{holidayLabel ?? schoolVacationLabel}</p>
                         ) : (
                           <p className="text-slate-500">Libre</p>
@@ -339,8 +365,21 @@ export default function CalendarPage() {
                       </div>
                     </div>
                   );
-                })
-              )}
+                })}
+                {weekPeriods.map((period) => {
+                  const style = getFamilyStyle(period.family);
+                  const setting = familySettings.find((item) => item.family === period.family);
+                  const position = getBarPosition(period.start_date, period.end_date, week);
+                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute top-8 z-10 overflow-hidden rounded-lg border-2 px-1.5 py-1 text-[9px] font-bold leading-3 shadow-sm sm:px-2 sm:text-[11px] sm:leading-4" style={{ ...position, backgroundColor: setting?.bg_color ?? style.background, borderColor: setting?.border_color ?? style.border, color: setting?.text_color ?? style.text }} title={`${period.family} · ${period.label}`}><span className="block truncate">{period.family} · {period.label}</span></div>;
+                })}
+                {weekReservations.map((reservation) => {
+                  const style = getFamilyStyle(reservation.user_family);
+                  const position = getBarPosition(reservation.start_date, reservation.end_date, week);
+                  const person = reservation.user_first_name ?? reservation.user_full_name ?? 'Famille';
+                  return <div key={`reservation-bar-${weekIndex}-${reservation.id}`} className="pointer-events-none absolute top-[4.5rem] z-10 overflow-hidden rounded-lg border-2 px-1.5 py-1 text-[9px] font-bold leading-3 shadow-sm sm:px-2 sm:text-[11px] sm:leading-4" style={{ ...position, backgroundColor: style.background, borderColor: style.border, color: style.text }} title={`${person} · ${formatDate(reservation.start_date)} → ${formatDate(reservation.end_date)}`}><span className="block truncate">{person} · {reservation.guests} pers.</span></div>;
+                })}
+                </div>;
+              })}
             </div>
           </section>
 
