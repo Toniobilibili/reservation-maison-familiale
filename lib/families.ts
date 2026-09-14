@@ -4,12 +4,12 @@ export type Family = (typeof families)[number];
 
 export const familyStyles: Record<string, { badge: string; cell: string; day: string; label: string; background: string; border: string; text: string }> = {
   NGUYEN: {
-    badge: 'bg-yellow-200 text-yellow-950',
-    cell: 'border-yellow-400 bg-yellow-100',
+    badge: 'bg-yellow-300 text-yellow-950',
+    cell: 'border-yellow-500 bg-yellow-100',
     day: 'border-yellow-100 bg-yellow-400 text-yellow-950',
     label: 'NGUYEN',
-    background: '#fef3c7',
-    border: '#ca8a04',
+    background: '#fef9c3',
+    border: '#eab308',
     text: '#713f12',
   },
   PLAGNOL: {
@@ -22,13 +22,13 @@ export const familyStyles: Record<string, { badge: string; cell: string; day: st
     text: '#581c87',
   },
   PUGNET: {
-    badge: 'bg-orange-500 text-white',
-    cell: 'border-orange-500 bg-orange-50',
-    day: 'border-orange-50 bg-orange-500 text-white',
+    badge: 'bg-orange-600 text-white',
+    cell: 'border-orange-600 bg-orange-100',
+    day: 'border-orange-100 bg-orange-600 text-white',
     label: 'PUGNET',
-    background: '#fff7ed',
-    border: '#f97316',
-    text: '#c2410c',
+    background: '#ffedd5',
+    border: '#ea580c',
+    text: '#9a3412',
   },
   BRETEAU: {
     badge: 'bg-sky-600 text-white',
