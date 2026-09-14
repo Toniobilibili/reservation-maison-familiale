@@ -253,13 +253,14 @@ export default function CalendarPage() {
                   const periodSetting = familySettings.find((setting) => setting.family === familyPeriod?.family);
                   const periodStart = isPeriodStart(familyPeriod, key);
                   const periodEnd = isPeriodEnd(familyPeriod, key);
+                  const periodLabel = periodStart ? `${familyPeriod?.family} · ${familyPeriod?.label}` : null;
 
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
                       className={`min-h-[82px] border p-1 text-left transition sm:min-h-[122px] sm:p-2 ${
                         familyPeriod
-                          ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'} border-y-4`
+                          ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'} border-y-2`
                           : holidayLabel
                           ? 'rounded-xl border-emerald-300 bg-emerald-50 text-slate-900'
                           : 'rounded-xl border-slate-200 bg-white text-slate-700'
@@ -270,6 +271,7 @@ export default function CalendarPage() {
                         <span className="text-xs font-semibold sm:text-sm">{day.getDate()}</span>
                         {holidayLabel ? <span className="hidden rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Férié</span> : null}
                       </div>
+                      {periodLabel ? <p className="mt-1 truncate text-[8px] font-bold uppercase leading-3 sm:text-[10px]" title={periodLabel}>{periodLabel}</p> : null}
                       <div className="mt-1 min-w-0 space-y-1 text-[10px] leading-3 sm:mt-2 sm:text-xs sm:leading-4">
                         {isReserved ? (
                           dayReservations.map((reservation) => {

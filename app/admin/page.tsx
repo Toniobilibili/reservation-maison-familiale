@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { AppShell } from '@/components/AppShell';
 import { ProtectedPage } from '@/components/ProtectedPage';
 import { useAuth } from '@/components/AuthContext';
@@ -22,6 +23,7 @@ export default function AdminPage() {
   const [userCreateLoading, setUserCreateLoading] = useState(false);
   const [userCreateError, setUserCreateError] = useState<string | null>(null);
   const [userCreateSuccess, setUserCreateSuccess] = useState<string | null>(null);
+  const [reservationError, setReservationError] = useState<string | null>(null);
   const [periods, setPeriods] = useState<FamilyPeriod[]>(defaultFamilyPeriods);
   const [periodForm, setPeriodForm] = useState({ id: '', year: '2026', family: 'PUGNET', label: '', start_date: '', end_date: '' });
   const [periodMessage, setPeriodMessage] = useState<string | null>(null);
@@ -139,10 +141,15 @@ export default function AdminPage() {
   }
 
   async function removeReservation(id: string) {
+    if (!window.confirm('Supprimer cette réservation ?')) {
+      return;
+    }
+
+    setReservationError(null);
     setActionLoading(id);
     const { error } = await supabase.from('reservations').delete().eq('id', id);
     if (error) {
-      console.error(error.message);
+      setReservationError(error.message);
     } else {
       setReservations((current) => current.filter((reservation) => reservation.id !== id));
     }
@@ -307,7 +314,7 @@ export default function AdminPage() {
               <label className="block text-sm font-medium text-slate-700">Année<input type="number" value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <label className="block text-sm font-medium text-slate-700">Image JPEG<input type="file" accept="image/jpeg,image/jpg" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
             </div>
-            {planningImage ? <img src={planningImage} alt={`Aperçu du planning ${planningYear}`} className="mt-4 max-h-80 w-full rounded-2xl border border-slate-200 object-contain" /> : null}
+            {planningImage ? <Image src={planningImage} alt={`Aperçu du planning ${planningYear}`} width={1200} height={800} unoptimized className="mt-4 max-h-80 w-full rounded-2xl border border-slate-200 object-contain" /> : null}
             <button type="button" onClick={savePlanningImport} disabled={!planningImage} className="mt-4 min-h-11 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Enregistrer le brouillon</button>
             {planningImports.length > 0 ? <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-slate-900">Historique des imports</h3>{planningImports.map((planningImport) => <div key={planningImport.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>{planningImport.year} · {planningImport.file_name}</span><span className="font-semibold">{planningImport.status === 'validated' ? 'Validé' : 'Brouillon'}</span></div>)}</div> : null}
           </section>
@@ -345,6 +352,13 @@ export default function AdminPage() {
                     >
                       Refuser
                     </button>
+                    <button
+                      onClick={() => removeReservation(reservation.id)}
+                      disabled={actionLoading === reservation.id}
+                      className="rounded-2xl border border-rose-200 px-4 py-3 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 disabled:opacity-60"
+                    >
+                      Supprimer
+                    </button>
                   </div>
                 </div>
               ))}
@@ -354,6 +368,7 @@ export default function AdminPage() {
           <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
             <h2 className="text-lg font-semibold text-slate-900">Historique</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">Toutes les réservations validées ou refusées.</p>
+            {reservationError ? <p className="mt-3 text-sm text-rose-600">Impossible de supprimer la réservation : {reservationError}</p> : null}
           </section>
 
           {loading ? null : history.length === 0 ? (
