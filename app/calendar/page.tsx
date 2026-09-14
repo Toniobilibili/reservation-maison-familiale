@@ -327,7 +327,7 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={`${weekIndex}-${key}`}
-                      className={`min-h-[150px] p-1 text-left transition sm:min-h-[188px] sm:p-2 ${
+                      className={`min-h-[150px] border p-1 text-left transition sm:min-h-[188px] sm:p-2 ${
                         familyPeriod
                           ? `${periodStyle.cell} ${periodStart ? 'rounded-l-2xl border-l-4' : 'border-l-0'} ${periodEnd ? 'rounded-r-2xl border-r-4' : 'border-r-0'}`
                           : holidayLabel || schoolVacationLabel
@@ -354,7 +354,7 @@ export default function CalendarPage() {
                   const style = getFamilyStyle(period.family);
                   const setting = familySettings.find((item) => item.family === period.family);
                   const position = getBarPosition(period.start_date, period.end_date, week);
-                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg border-2 shadow-sm" style={{ ...position, top: `calc(2rem + ${periodIndex} * 1.7rem)`, backgroundColor: setting?.bg_color ?? style.background, borderColor: setting?.border_color ?? style.border }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
+                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg shadow-sm" style={{ ...position, top: `calc(2rem + ${periodIndex} * 1.7rem)`, backgroundColor: setting?.bg_color ?? style.background }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
                 })}
                 {weekReservations.map((reservation, reservationIndex) => {
                   const style = getFamilyStyle(reservation.user_family);
