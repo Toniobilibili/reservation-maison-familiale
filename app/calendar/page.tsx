@@ -339,7 +339,6 @@ export default function CalendarPage() {
                       <div className="flex items-start justify-between gap-1">
                         <span className="text-xs font-semibold sm:text-sm">{day.getDate()}</span>
                         {holidayLabel ? <span className="hidden rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Férié</span> : null}
-                        {schoolVacationLabel ? <span className="hidden rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold uppercase text-white sm:inline">Zone C</span> : null}
                       </div>
                       <div className="mt-1 min-w-0 space-y-1 text-[10px] leading-3 sm:mt-2 sm:text-xs sm:leading-4">
                         {!familyPeriod && (holidayLabel || schoolVacationLabel) ? (
