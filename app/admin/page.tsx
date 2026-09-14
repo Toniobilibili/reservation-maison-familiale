@@ -8,7 +8,7 @@ import { ProtectedPage } from '@/components/ProtectedPage';
 import { useAuth } from '@/components/AuthContext';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
-import type { FamilyPeriod, FamilySetting, PlanningImport } from '@/lib/types';
+import type { FamilyPeriod, PlanningImport } from '@/lib/types';
 import { ReservationCard } from '@/components/ReservationCard';
 import { defaultFamilyPeriods } from '@/lib/planning';
 
@@ -100,7 +100,6 @@ export default function AdminPage() {
   const [planningImage, setPlanningImage] = useState<string | null>(null);
   const [planningFileName, setPlanningFileName] = useState('');
   const [planningYear, setPlanningYear] = useState('2027');
-  const [familySettings, setFamilySettings] = useState<FamilySetting[]>([]);
   const [planningImports, setPlanningImports] = useState<PlanningImport[]>([]);
   const [ocrPeriods, setOcrPeriods] = useState<OcrPeriod[]>([]);
   const [ocrText, setOcrText] = useState('');
@@ -129,8 +128,6 @@ export default function AdminPage() {
       }
       const { data: periodData } = await supabase.from('family_periods').select('id, year, family, label, start_date, end_date, created_at, updated_at').order('start_date', { ascending: true });
       if (periodData && periodData.length > 0) setPeriods(periodData as FamilyPeriod[]);
-      const { data: settingData } = await supabase.from('family_settings').select('family, label, bg_color, border_color, text_color, updated_at').order('family');
-      if (settingData) setFamilySettings(settingData as FamilySetting[]);
       const { data: importData } = await supabase.from('planning_imports').select('id, year, file_name, image_url, status, extracted_periods, created_by, created_at').order('created_at', { ascending: false });
       if (importData) setPlanningImports(importData as PlanningImport[]);
       setLoading(false);
@@ -187,7 +184,7 @@ export default function AdminPage() {
       const result = await worker.recognize(file);
       await worker.terminate();
       setOcrText(result.data.text);
-      const families = [...new Set([...periods, ...familySettings].map((item) => item.family).filter(Boolean))];
+      const families = [...new Set(periods.map((item) => item.family).filter(Boolean))];
       setOcrPeriods(parseOcrPeriods(result.data.text, Number(planningYear), families));
     } catch (error) {
       setOcrError(error instanceof Error ? error.message : 'La lecture OCR a échoué.');
@@ -222,17 +219,6 @@ export default function AdminPage() {
       if (syncedPeriods) setPeriods((current) => [...current.filter((period) => period.year !== Number(planningYear)), ...(syncedPeriods as FamilyPeriod[])]);
     }
     setPeriodMessage(error ? error.message : extractedPeriods.length > 0 ? 'Import enregistré et planning synchronisé automatiquement.' : 'Import enregistré en brouillon. Ajoutez les périodes dans le planning avant de synchroniser le calendrier.');
-  }
-
-  async function saveFamilySetting(setting: FamilySetting) {
-    const { error } = await supabase.from('family_settings').upsert({
-      family: setting.family,
-      label: setting.label,
-      bg_color: setting.bg_color,
-      border_color: setting.border_color,
-      text_color: setting.text_color,
-    });
-    setPeriodMessage(error ? error.message : `Couleurs de ${setting.family} enregistrées.`);
   }
 
   async function removeReservation(id: string) {
@@ -404,14 +390,6 @@ export default function AdminPage() {
                 </button>
               </div>
             </form>
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
-            <h2 className="text-lg font-semibold text-slate-900">Familles et couleurs</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Modifiez les couleurs utilisées dans la légende, les périodes et les réservations.</p>
-            <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              {familySettings.map((setting) => <div key={setting.family} className="rounded-2xl border border-slate-200 bg-slate-50 p-3"><div className="flex items-center justify-between gap-3"><strong className="text-sm">{setting.family}</strong><span className="h-7 w-7 rounded-full border" style={{ backgroundColor: setting.bg_color, borderColor: setting.border_color }} /></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><label>Fond<input type="color" value={setting.bg_color} onChange={(event) => setFamilySettings((current) => current.map((item) => item.family === setting.family ? { ...item, bg_color: event.target.value } : item))} className="mt-1 h-9 w-full rounded-lg" /></label><label>Bordure<input type="color" value={setting.border_color} onChange={(event) => setFamilySettings((current) => current.map((item) => item.family === setting.family ? { ...item, border_color: event.target.value } : item))} className="mt-1 h-9 w-full rounded-lg" /></label><label>Texte<input type="color" value={setting.text_color} onChange={(event) => setFamilySettings((current) => current.map((item) => item.family === setting.family ? { ...item, text_color: event.target.value } : item))} className="mt-1 h-9 w-full rounded-lg" /></label></div><button type="button" onClick={() => saveFamilySetting(setting)} className="mt-3 rounded-xl bg-brand-600 px-3 py-2 text-xs font-semibold text-white">Enregistrer</button></div>)}
-            </div>
           </section>
 
           <section id="family-periods" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">

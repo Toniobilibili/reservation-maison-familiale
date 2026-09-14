@@ -346,7 +346,7 @@ export default function BookPage() {
             <input
               type="number"
               min={1}
-              max={12}
+              max={99}
               value={guests}
               onChange={(e) => setGuests(Number(e.target.value))}
               required
