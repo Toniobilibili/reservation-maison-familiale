@@ -7,7 +7,6 @@ import { BottomNav } from '@/components/BottomNav';
 import { supabase } from '@/lib/supabaseClient';
 
 const desktopLinks = [
-  { href: '/', label: 'Accueil' },
   { href: '/calendar', label: 'Calendrier' },
   { href: '/book', label: 'Réserver' },
   { href: '/info', label: 'Infos' },

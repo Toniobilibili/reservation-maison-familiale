@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation';
 import { useAuth } from '@/components/AuthContext';
 
 const items = [
-  { href: '/', label: 'Accueil', icon: 'home' },
   { href: '/calendar', label: 'Calendrier', icon: 'calendar' },
   { href: '/book', label: 'Réserver', icon: 'plus' },
   { href: '/info', label: 'Infos', icon: 'info' },
