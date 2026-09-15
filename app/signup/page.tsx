@@ -30,7 +30,10 @@ export default function SignUpPage() {
     });
 
     if (signUpError) {
-      setError(signUpError.message);
+      const normalizedMessage = signUpError.message.toLowerCase();
+      setError(normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists')
+        ? 'Cette adresse existe déjà dans Supabase Authentication. Vérifie Authentication > Users, puis connecte-toi ou supprime cet ancien compte avant de réessayer.'
+        : signUpError.message);
       setLoading(false);
       return;
     }
