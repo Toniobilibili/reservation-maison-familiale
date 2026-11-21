@@ -14,71 +14,110 @@ import { defaultFamilyPeriods } from '@/lib/planning';
 
 type OcrPeriod = Omit<FamilyPeriod, 'id' | 'created_at' | 'updated_at'> & { id: string };
 
-function normalizedLineMonth(line: string, monthNumbers: Record<string, number>) {
-  const normalizedLine = line.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  return Object.entries(monthNumbers).find(([month]) => normalizedLine.includes(month.normalize('NFD').replace(/[\u0300-\u036f]/g, '')))?.[1];
-}
-
-function parseOcrPeriods(text: string, year: number, families: string[]): OcrPeriod[] {
-  const normalizedFamilies = families.map((family) => ({ original: family, normalized: family.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase() }));
+function parseScheduleOcrPeriods(text: string, year: number, families: string[]): OcrPeriod[] {
+  const months: Record<string, number> = { janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12 };
+  const monthPattern = Object.keys(months).join('|');
+  const datePattern = new RegExp(`(\\d{1,2})\\s*(?:[./-]\\s*(\\d{1,2})(?:[./-]\\s*(\\d{2,4}))?|\\s*(${monthPattern})\\s*(\\d{2,4})?)`, 'gi');
+  const people = [
+    { key: 'laurent', display: 'Laurent', family: 'PUGNET' },
+    { key: 'genevieve', display: 'Geneviève', family: 'BRETEAU' },
+    { key: 'agnes', display: 'Agnès', family: 'NGUYEN' },
+    { key: 'brigitte', display: 'Brigitte', family: 'PLAGNOL' },
+  ];
+  const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const normalizedFamilies = families.map((family) => ({ original: family, normalized: normalize(family).toUpperCase() }));
   const periods: OcrPeriod[] = [];
-  const datePattern = /(\d{1,2})\s*(?:[./-]\s*(\d{1,2})(?:[./-]\s*(\d{2,4}))?|\s*(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s*(\d{2,4})?)/gi;
-  const monthNumbers: Record<string, number> = {
-    janvier: 1,
-    février: 2,
-    fevrier: 2,
-    mars: 3,
-    avril: 4,
-    mai: 5,
-    juin: 6,
-    juillet: 7,
-    août: 8,
-    aout: 8,
-    septembre: 9,
-    octobre: 10,
-    novembre: 11,
-    décembre: 12,
-    decembre: 12,
+  let currentSection = 'Période importée';
+  const normalizedDocument = normalize(text);
+  const makeDate = (dayText: string, month: number, yearText?: string) => {
+    const printedYear = yearText ? Number(yearText.length === 2 ? `20${yearText}` : yearText) : year;
+    const dateYear = year;
+    const date = new Date(Date.UTC(dateYear, month - 1, Number(dayText)));
+    if (date.getUTCFullYear() !== dateYear || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== Number(dayText)) return null;
+    return { value: `${dateYear}-${String(month).padStart(2, '0')}-${String(Number(dayText)).padStart(2, '0')}`, printedYear };
   };
 
+  // Les week-ends d'automne sont souvent reconnus comme une phrase continue avec plusieurs dates et prénoms.
+  const autumnAssignments = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\s*:\s*(laurent|genevieve|agnes|brigitte)\b/gi;
+  for (const match of normalizedDocument.matchAll(autumnAssignments)) {
+    const [, day, monthText, printedYearText, personName] = match;
+    const person = people.find(({ key }) => key === personName.toLowerCase());
+    if (!person) continue;
+    const start = makeDate(day, Number(monthText), printedYearText);
+    if (!start) continue;
+    const checkout = new Date(`${start.value}T00:00:00Z`);
+    checkout.setUTCDate(checkout.getUTCDate() + 7);
+    const yearNote = start.printedYear !== year ? ` — année lue ${start.printedYear}, corrigée à ${year}, à vérifier` : '';
+    periods.push({
+      id: `ocr-autumn-${periods.length}`,
+      year,
+      family: person.family,
+      label: `Week-end d'automne — ${person.display}${yearNote}`,
+      start_date: start.value,
+      end_date: checkout.toISOString().slice(0, 10),
+    });
+  }
+
   text.split(/\r?\n/).forEach((line, index) => {
-    const matches = [...line.matchAll(datePattern)];
-    const buildDate = (day: string, month: number, yearText?: string) => {
-      const parsedYear = yearText ? Number(yearText.length === 2 ? `20${yearText}` : yearText) : year;
-      return `${parsedYear}-${String(month).padStart(2, '0')}-${String(Number(day)).padStart(2, '0')}`;
-    };
-    const parenthesizedDates = line.match(/\((\d{1,2}(?:\/\d{1,2}){1,3})\)/)?.[1]?.split('/');
-    const contextMonth = normalizedLineMonth(line, monthNumbers);
-    const normalizedLine = line.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-    let startDate = '';
-    let endDate = '';
-    if (parenthesizedDates && parenthesizedDates.length >= 2 && contextMonth) {
-      startDate = buildDate(parenthesizedDates[0], contextMonth);
-      endDate = buildDate(parenthesizedDates[parenthesizedDates.length - 1], contextMonth);
+    const normalized = normalize(line);
+    if (normalized.includes('week-end') && normalized.includes('automne')) currentSection = "Week-end d'automne";
+    else if (normalized.includes('vacances') && normalized.includes('ete')) currentSection = "Vacances d'été";
+    else if (normalized.includes('paques')) currentSection = 'Week-end de Pâques';
+    else if (normalized.includes('ascension')) currentSection = 'Ascension';
+    else if (normalized.includes('pentecote')) currentSection = 'Pentecôte';
+    else if (normalized.includes('vacances') && normalized.includes('noel')) currentSection = 'Vacances de Noël';
+    else if (normalized.includes('vacances') && normalized.includes('hiver')) currentSection = "Vacances d'hiver";
+    else if (normalized.includes('vacances') && normalized.includes('printemps')) currentSection = 'Vacances de printemps';
+
+    if (currentSection === "Week-end d'automne") return;
+
+    const person = people.find(({ key }) => new RegExp(`\\b${key}\\b`, 'i').test(normalized));
+    const knownFamily = normalizedFamilies.find(({ normalized: family }) => normalized.toUpperCase().includes(family));
+    if (!person && !knownFamily) return;
+
+    const groupedDays = normalized.match(new RegExp(`((?:\\d{1,2}\\s*\\/\\s*)+\\d{1,2})\\s*(${monthPattern})\\s*(\\d{4})?`, 'i'));
+    let start: ReturnType<typeof makeDate> = null;
+    let end: ReturnType<typeof makeDate> = null;
+    if (groupedDays) {
+      const days = groupedDays[1].split('/').map((day) => day.trim());
+      const month = months[groupedDays[2]];
+      start = makeDate(days[0], month, groupedDays[3]);
+      end = makeDate(days[days.length - 1], month, groupedDays[3]);
     } else {
-      if (matches.length < 2) return;
-      const toDate = (match: RegExpMatchArray) => {
-        const month = match[2] ? Number(match[2]) : monthNumbers[match[4].toLowerCase()];
-        return buildDate(match[1], month, match[3] ?? match[5]);
-      };
-      startDate = toDate(matches[0]);
-      endDate = toDate(matches[1]);
+      const matches = [...line.matchAll(datePattern)];
+      if (matches.length >= 2) {
+        const toDate = (match: RegExpMatchArray, inheritedMonth?: number) => {
+          const month = match[2] ? Number(match[2]) : match[4] ? months[normalize(match[4])] : inheritedMonth;
+          return month ? makeDate(match[1], month, match[3] ?? match[5]) : null;
+        };
+        start = toDate(matches[0]);
+        end = toDate(matches[1], start ? Number(start.value.slice(5, 7)) : undefined);
+      } else if (matches.length === 1 && (/week[- ]?end/.test(normalized) || currentSection === "Week-end d'automne")) {
+        const match = matches[0];
+        const month = match[2] ? Number(match[2]) : match[4] ? months[normalize(match[4])] : undefined;
+        start = month ? makeDate(match[1], month, match[3] ?? match[5]) : null;
+        if (start) {
+          const checkout = new Date(`${start.value}T00:00:00Z`);
+          checkout.setUTCDate(checkout.getUTCDate() + 7);
+          end = { value: checkout.toISOString().slice(0, 10), printedYear: year };
+        }
+      }
     }
-    const textAfterColon = line.match(/[:：]\s*([^()]+)/)?.[1]?.trim() ?? '';
-    const detectedFamily = textAfterColon.replace(/[.,;:]+$/, '').trim();
-    const family = normalizedFamilies.find((candidate) => normalizedLine.includes(candidate.normalized))?.original ?? detectedFamily;
-    const label = line
-      .replace(datePattern, '')
-      .replace(/[:：].*$/, '')
-      .replace(new RegExp(families.join('|'), 'ig'), '')
-      .replace(/[|;,:-]+/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .replace(/^_?du\s+au$/i, '')
-      .trim() || `Période importée ${index + 1}`;
-    if (startDate <= endDate) periods.push({ id: `ocr-${index}`, year, family, label, start_date: startDate, end_date: endDate });
+    if (!start || !end || start.value > end.value) return;
+
+    const family = person?.family ?? knownFamily?.original ?? person?.display ?? '';
+    const personLabel = person?.display ?? family;
+    const yearNote = start.printedYear !== year ? ` — année lue ${start.printedYear}, corrigée à ${year}, à vérifier` : '';
+    periods.push({
+      id: `ocr-${index}-${periods.length}`,
+      year,
+      family,
+      label: `${currentSection} — ${personLabel}${yearNote}`,
+      start_date: start.value,
+      end_date: end.value,
+    });
   });
-  return periods;
+  return periods.sort((first, second) => first.start_date.localeCompare(second.start_date));
 }
 
 export default function AdminPage() {
@@ -186,7 +225,7 @@ export default function AdminPage() {
         const pageTexts: string[] = [];
         for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
           const page = await pdf.getPage(pageNumber);
-          const viewport = page.getViewport({ scale: 1.5 });
+          const viewport = page.getViewport({ scale: 2 });
           const canvas = document.createElement('canvas');
           canvas.width = Math.ceil(viewport.width);
           canvas.height = Math.ceil(viewport.height);
@@ -205,9 +244,16 @@ export default function AdminPage() {
           setOcrProgress(Math.round((pageNumber / pdf.numPages) * 30));
         }
         setPlanningImage(pageCanvases[0]?.toDataURL('image/jpeg', 0.85) ?? null);
-        const worker = await createWorker('fra', 1);
+        let activePageIndex = 0;
+        const worker = await createWorker('fra', 1, {
+          logger: (message) => {
+            const pageProgress = message.progress ?? 0;
+            setOcrProgress(30 + Math.round(((activePageIndex + pageProgress) / pageCanvases.length) * 70));
+          },
+        });
         const results: string[] = [];
         for (let index = 0; index < pageCanvases.length; index += 1) {
+          activePageIndex = index;
           const embeddedText = pageTexts[index].trim();
           const result = embeddedText.length > 30
             ? embeddedText
@@ -219,7 +265,7 @@ export default function AdminPage() {
         const text = results.join('\n\n');
         setOcrText(text);
         const families = [...new Set(periods.map((item) => item.family).filter(Boolean))];
-        setOcrPeriods(parseOcrPeriods(text, Number(planningYear), families));
+        setOcrPeriods(parseScheduleOcrPeriods(text, Number(planningYear), families));
       } else {
         setPlanningImage(await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
@@ -232,7 +278,7 @@ export default function AdminPage() {
         await worker.terminate();
         setOcrText(result.data.text);
         const families = [...new Set(periods.map((item) => item.family).filter(Boolean))];
-        setOcrPeriods(parseOcrPeriods(result.data.text, Number(planningYear), families));
+        setOcrPeriods(parseScheduleOcrPeriods(result.data.text, Number(planningYear), families));
       }
     } catch (error) {
       setOcrError(error instanceof Error ? error.message : 'La lecture OCR a échoué.');
@@ -447,7 +493,7 @@ export default function AdminPage() {
 
           <section id="planning-import" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
             <h2 className="text-lg font-semibold text-slate-900">Importer un planning</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Importez une image JPEG ou un PDF du programme familial de Laurent. Le texte est reconnu localement, puis les dates détectées restent modifiables avant la synchronisation du planning.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Importez une image JPEG ou un PDF du programme familial. Le texte est reconnu localement, puis les périodes datées restent modifiables avant leur synchronisation.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr]">
               <label className="block text-sm font-medium text-slate-700">Année<input type="number" value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <label className="block text-sm font-medium text-slate-700">Document (JPEG ou PDF)<input type="file" accept="image/jpeg,image/jpg,application/pdf,.pdf" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
@@ -456,7 +502,7 @@ export default function AdminPage() {
             {ocrLoading ? <p className="mt-4 text-sm text-slate-600">Lecture OCR en cours... {ocrProgress}%</p> : null}
             {ocrError ? <p className="mt-4 text-sm text-rose-600">{ocrError}</p> : null}
             {ocrText ? <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-semibold text-slate-700">Afficher le texte détecté</summary><pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs text-slate-600">{ocrText}</pre></details> : null}
-            {ocrPeriods.length > 0 ? <div className="mt-4 space-y-3"><h3 className="text-sm font-semibold text-slate-900">Périodes détectées à vérifier</h3>{ocrPeriods.map((period, index) => <div key={period.id} className="grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:grid-cols-4"><input aria-label="Famille détectée" value={period.family} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, family: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="Famille" /><input aria-label="Libellé détecté" value={period.label} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="Libellé" /><input aria-label="Date de début détectée" type="date" value={period.start_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, start_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /><input aria-label="Date de fin détectée" type="date" value={period.end_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, end_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /></div>)}</div> : null}
+            {ocrPeriods.length > 0 ? <div className="mt-4 space-y-3"><h3 className="text-sm font-semibold text-slate-900">Périodes détectées à vérifier</h3><p className="text-xs leading-5 text-slate-600">Les prénoms sont associés aux familles selon le roulement du planning précédent. Vérifiez ou corrigez cette proposition avant l’enregistrement. Les périodes sans dates dans le document ne sont pas ajoutées.</p>{ocrPeriods.map((period, index) => <div key={period.id} className="grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:grid-cols-4"><select aria-label="Famille détectée" value={period.family} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, family: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm">{['PUGNET', 'PLAGNOL', 'NGUYEN', 'BRETEAU'].map((family) => <option key={family} value={family}>{family}</option>)}</select><input aria-label="Libellé détecté" value={period.label} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="Libellé" /><input aria-label="Date de début détectée" type="date" value={period.start_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, start_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /><input aria-label="Date de fin détectée" type="date" value={period.end_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, end_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /></div>)}</div> : null}
             <button type="button" onClick={savePlanningImport} disabled={!planningImage || ocrLoading} className="mt-4 min-h-11 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Enregistrer le planning détecté</button>
             {planningImports.length > 0 ? <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-slate-900">Historique des imports</h3>{planningImports.map((planningImport) => <div key={planningImport.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>{planningImport.year} · {planningImport.file_name}</span><span className="font-semibold">{planningImport.status === 'validated' ? 'Validé' : 'Brouillon'}</span></div>)}</div> : null}
           </section>
