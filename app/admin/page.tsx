@@ -176,16 +176,64 @@ export default function AdminPage() {
     setOcrError(null);
     setOcrLoading(true);
     setOcrProgress(0);
-    const reader = new FileReader();
-    reader.onload = () => setPlanningImage(String(reader.result));
-    reader.readAsDataURL(file);
     try {
-      const worker = await createWorker('fra', 1, { logger: (message) => setOcrProgress(Math.round((message.progress ?? 0) * 100)) });
-      const result = await worker.recognize(file);
-      await worker.terminate();
-      setOcrText(result.data.text);
-      const families = [...new Set(periods.map((item) => item.family).filter(Boolean))];
-      setOcrPeriods(parseOcrPeriods(result.data.text, Number(planningYear), families));
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (isPdf) {
+        const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+        pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+        const pdf = await pdfjs.getDocument({ data: await file.arrayBuffer() }).promise;
+        const pageCanvases: HTMLCanvasElement[] = [];
+        const pageTexts: string[] = [];
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          const page = await pdf.getPage(pageNumber);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.ceil(viewport.width);
+          canvas.height = Math.ceil(viewport.height);
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Impossible de préparer une page du PDF.');
+          await page.render({ canvasContext: context, viewport }).promise;
+          pageCanvases.push(canvas);
+          const content = await page.getTextContent();
+          const lines = new Map<number, string[]>();
+          content.items.forEach((item) => {
+            if (!('str' in item) || !('transform' in item) || !item.str.trim()) return;
+            const y = Math.round(item.transform[5]);
+            lines.set(y, [...(lines.get(y) ?? []), item.str.trim()]);
+          });
+          pageTexts.push([...lines.entries()].sort(([a], [b]) => b - a).map(([, words]) => words.join(' ')).join('\n'));
+          setOcrProgress(Math.round((pageNumber / pdf.numPages) * 30));
+        }
+        setPlanningImage(pageCanvases[0]?.toDataURL('image/jpeg', 0.85) ?? null);
+        const worker = await createWorker('fra', 1);
+        const results: string[] = [];
+        for (let index = 0; index < pageCanvases.length; index += 1) {
+          const embeddedText = pageTexts[index].trim();
+          const result = embeddedText.length > 30
+            ? embeddedText
+            : (await worker.recognize(pageCanvases[index])).data.text;
+          results.push(`Page ${index + 1}\n${result}`);
+          setOcrProgress(30 + Math.round(((index + 1) / pageCanvases.length) * 70));
+        }
+        await worker.terminate();
+        const text = results.join('\n\n');
+        setOcrText(text);
+        const families = [...new Set(periods.map((item) => item.family).filter(Boolean))];
+        setOcrPeriods(parseOcrPeriods(text, Number(planningYear), families));
+      } else {
+        setPlanningImage(await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(new Error('Impossible de lire le fichier image.'));
+          reader.readAsDataURL(file);
+        }));
+        const worker = await createWorker('fra', 1, { logger: (message) => setOcrProgress(Math.round((message.progress ?? 0) * 100)) });
+        const result = await worker.recognize(file);
+        await worker.terminate();
+        setOcrText(result.data.text);
+        const families = [...new Set(periods.map((item) => item.family).filter(Boolean))];
+        setOcrPeriods(parseOcrPeriods(result.data.text, Number(planningYear), families));
+      }
     } catch (error) {
       setOcrError(error instanceof Error ? error.message : 'La lecture OCR a échoué.');
     } finally {
@@ -398,11 +446,11 @@ export default function AdminPage() {
           </section>
 
           <section id="planning-import" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
-            <h2 className="text-lg font-semibold text-slate-900">Importer un planning JPEG</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">Importez le JPEG du programme familial de Laurent. Le texte est reconnu localement, puis les dates détectées restent modifiables avant la synchronisation du planning.</p>
+            <h2 className="text-lg font-semibold text-slate-900">Importer un planning</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">Importez une image JPEG ou un PDF du programme familial de Laurent. Le texte est reconnu localement, puis les dates détectées restent modifiables avant la synchronisation du planning.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr]">
               <label className="block text-sm font-medium text-slate-700">Année<input type="number" value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
-              <label className="block text-sm font-medium text-slate-700">Image JPEG<input type="file" accept="image/jpeg,image/jpg" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
+              <label className="block text-sm font-medium text-slate-700">Document (JPEG ou PDF)<input type="file" accept="image/jpeg,image/jpg,application/pdf,.pdf" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
             </div>
             {planningImage ? <Image src={planningImage} alt={`Aperçu du planning ${planningYear}`} width={1200} height={800} unoptimized className="mt-4 max-h-80 w-full rounded-2xl border border-slate-200 object-contain" /> : null}
             {ocrLoading ? <p className="mt-4 text-sm text-slate-600">Lecture OCR en cours... {ocrProgress}%</p> : null}
