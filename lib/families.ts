@@ -2,6 +2,13 @@ export const families = ['PUGNET', 'PLAGNOL', 'NGUYEN', 'BRETEAU'] as const;
 
 export type Family = (typeof families)[number];
 
+export const planningNameFamilies: Record<string, { display: string; family: Family }> = {
+  genevieve: { display: 'Geneviève', family: 'PUGNET' },
+  brigitte: { display: 'Brigitte', family: 'NGUYEN' },
+  laurent: { display: 'Laurent', family: 'PLAGNOL' },
+  agnes: { display: 'Agnès', family: 'BRETEAU' },
+};
+
 export const familyStyles: Record<string, { badge: string; cell: string; day: string; label: string; background: string; border: string; text: string }> = {
   NGUYEN: {
     badge: 'bg-yellow-300 text-yellow-950',

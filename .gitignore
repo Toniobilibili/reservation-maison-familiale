@@ -11,3 +11,4 @@ dev-server*.log
 *.tsbuildinfo
 .vercel
 .env*
+.planning-roster.local.md
