@@ -19,6 +19,14 @@ function parseScheduleOcrPeriods(text: string, year: number, families: string[])
   const months: Record<string, number> = { janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7, aout: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12 };
   const monthPattern = Object.keys(months).join('|');
   const datePattern = new RegExp(`(\\d{1,2})\\s*(?:[./-]\\s*(\\d{1,2})(?:[./-]\\s*(\\d{2,4}))?|\\s*(${monthPattern})\\s*(\\d{2,4})?)`, 'gi');
+  const officialSchoolHolidayDates: Record<number, Record<string, { start: string; end: string }>> = {
+    // Hyères dépend de l'académie de Nice, en zone B. Dates officielles 2026-2027.
+    2027: {
+      noel: { start: '2026-12-19', end: '2027-01-04' },
+      hiver: { start: '2027-02-20', end: '2027-03-08' },
+      printemps: { start: '2027-04-17', end: '2027-05-03' },
+    },
+  };
   const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const rosterPeople = Object.entries(planningNameFamilies).map(([key, person]) => ({ key, ...person }));
   const normalizedFamilies = families.map((family) => ({ original: family, normalized: normalize(family).toUpperCase() }));
@@ -98,6 +106,18 @@ function parseScheduleOcrPeriods(text: string, year: number, families: string[])
           checkout.setUTCDate(checkout.getUTCDate() + 7);
           end = { value: checkout.toISOString().slice(0, 10), printedYear: year };
         }
+      }
+    }
+    if (!start || !end) {
+      const section = normalize(currentSection);
+      const holidayKey = section.includes('noel') ? 'noel'
+        : section.includes('hiver') ? 'hiver'
+          : section.includes('printemps') ? 'printemps'
+            : null;
+      const dates = holidayKey ? officialSchoolHolidayDates[year]?.[holidayKey] : undefined;
+      if (dates) {
+        start = { value: dates.start, printedYear: year };
+        end = { value: dates.end, printedYear: year };
       }
     }
     if (!start || !end || start.value > end.value) return;
@@ -499,7 +519,7 @@ export default function AdminPage() {
             {ocrLoading ? <p className="mt-4 text-sm text-slate-600">Lecture OCR en cours... {ocrProgress}%</p> : null}
             {ocrError ? <p className="mt-4 text-sm text-rose-600">{ocrError}</p> : null}
             {ocrText ? <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-semibold text-slate-700">Afficher le texte détecté</summary><pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs text-slate-600">{ocrText}</pre></details> : null}
-            {ocrPeriods.length > 0 ? <div className="mt-4 space-y-3"><h3 className="text-sm font-semibold text-slate-900">Périodes détectées à vérifier</h3><p className="text-xs leading-5 text-slate-600">Les prénoms identifiés sont associés à leur famille selon la liste enregistrée des occupants. Vérifiez ou corrigez cette proposition avant l’enregistrement. Les périodes sans dates dans le document ne sont pas ajoutées.</p>{ocrPeriods.map((period, index) => <div key={period.id} className="grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:grid-cols-4"><select aria-label="Famille détectée" value={period.family} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, family: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm">{['PUGNET', 'PLAGNOL', 'NGUYEN', 'BRETEAU'].map((family) => <option key={family} value={family}>{family}</option>)}</select><input aria-label="Libellé détecté" value={period.label} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="Libellé" /><input aria-label="Date de début détectée" type="date" value={period.start_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, start_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /><input aria-label="Date de fin détectée" type="date" value={period.end_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, end_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /></div>)}</div> : null}
+            {ocrPeriods.length > 0 ? <div className="mt-4 space-y-3"><h3 className="text-sm font-semibold text-slate-900">Périodes détectées à vérifier</h3><p className="text-xs leading-5 text-slate-600">Les prénoms identifiés sont associés à leur famille selon la liste enregistrée des occupants. Vérifiez ou corrigez cette proposition avant l’enregistrement. Pour 2027, Noël, l’hiver et le printemps sont complétés selon le calendrier officiel de la zone B ; les autres périodes sans dates restent exclues.</p>{ocrPeriods.map((period, index) => <div key={period.id} className="grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:grid-cols-4"><select aria-label="Famille détectée" value={period.family} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, family: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm">{['PUGNET', 'PLAGNOL', 'NGUYEN', 'BRETEAU'].map((family) => <option key={family} value={family}>{family}</option>)}</select><input aria-label="Libellé détecté" value={period.label} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="Libellé" /><input aria-label="Date de début détectée" type="date" value={period.start_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, start_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /><input aria-label="Date de fin détectée" type="date" value={period.end_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, end_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /></div>)}</div> : null}
             <button type="button" onClick={savePlanningImport} disabled={!planningImage || ocrLoading} className="mt-4 min-h-11 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Enregistrer le planning détecté</button>
             {planningImports.length > 0 ? <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-slate-900">Historique des imports</h3>{planningImports.map((planningImport) => <div key={planningImport.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>{planningImport.year} · {planningImport.file_name}</span><span className="font-semibold">{planningImport.status === 'validated' ? 'Validé' : 'Brouillon'}</span></div>)}</div> : null}
           </section>
