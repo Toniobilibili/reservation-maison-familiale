@@ -185,8 +185,17 @@ export default function AdminPage() {
       if (error) {
         console.error(error.message);
       }
-      const { data: periodData } = await supabase.from('family_periods').select('id, year, family, label, start_date, end_date, created_at, updated_at').order('start_date', { ascending: true });
-      if (periodData) setPeriods(mergeFamilyPeriodsWithDefaults(periodData as FamilyPeriod[]));
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (sessionError || !accessToken) throw new Error('Reconnectez-vous pour charger les périodes du planning.');
+        const response = await fetch('/api/family-periods', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error ?? 'Le planning enregistré n’a pas pu être chargé.');
+        setPeriods(mergeFamilyPeriodsWithDefaults((result.periods ?? []) as FamilyPeriod[]));
+      } catch (error) {
+        setPeriodMessage(error instanceof Error ? error.message : 'Le planning enregistré n’a pas pu être chargé.');
+      }
       const { data: importData } = await supabase.from('planning_imports').select('id, year, file_name, image_url, status, extracted_periods, created_by, created_at').order('created_at', { ascending: false });
       if (importData) setPlanningImports(importData as PlanningImport[]);
       setLoading(false);
@@ -351,13 +360,16 @@ export default function AdminPage() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error ?? `Le serveur a refusé l’enregistrement (${response.status}).`);
+      if (extractedPeriods.length > 0 && (!Array.isArray(result.periods) || result.periods.length !== extractedPeriods.length)) {
+        throw new Error('Le serveur a accepté l’import, mais toutes les périodes ne sont pas confirmées en base. Réessayez avant de quitter cette page.');
+      }
 
       if (result.planningImport) setPlanningImports((current) => [result.planningImport as PlanningImport, ...current]);
       if (Array.isArray(result.periods) && result.periods.length > 0) {
         setPeriods((current) => [...current.filter((period) => period.year !== Number(planningYear)), ...(result.periods as FamilyPeriod[])]);
       }
       setPlanningSaveMessage(extractedPeriods.length > 0
-        ? 'Planning enregistré et synchronisé.'
+        ? `Planning enregistré : ${result.periods.length} période${result.periods.length > 1 ? 's' : ''} synchronisée${result.periods.length > 1 ? 's' : ''}.`
         : 'Import enregistré en brouillon. Ajoutez les périodes dans le planning avant de synchroniser.');
     } catch (error) {
       console.error('Échec de l’enregistrement du planning', error);
@@ -448,7 +460,7 @@ export default function AdminPage() {
     setUserCreateLoading(false);
   }
 
-  const periodYears = [...new Set([...periods.map((period) => period.year), 2026, 2027])].sort((first, second) => second - first);
+  const periodYears = [...new Set([...periods.map((period) => period.year), ...Array.from({ length: 7 }, (_, index) => 2026 + index)])].sort((first, second) => second - first);
 
   return (
     <ProtectedPage adminOnly>
@@ -562,7 +574,7 @@ export default function AdminPage() {
             <h2 className="text-lg font-semibold text-slate-900">Importer un planning</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">Importez une image JPEG ou un PDF du programme familial. Le texte est reconnu localement, puis les périodes datées restent modifiables avant leur synchronisation.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr]">
-              <label className="block text-sm font-medium text-slate-700">Année du planning<select value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"><option value="2026">2026</option><option value="2027">2027</option></select></label>
+              <label className="block text-sm font-medium text-slate-700">Année du planning<select value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">{Array.from({ length: 7 }, (_, index) => 2026 + index).map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
               <label className="block text-sm font-medium text-slate-700">Document (JPEG ou PDF)<input type="file" accept="image/jpeg,image/jpg,application/pdf,.pdf" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
             </div>
             {planningImage ? <Image src={planningImage} alt={`Aperçu du planning ${planningYear}`} width={1200} height={800} unoptimized className="mt-4 max-h-80 w-full rounded-2xl border border-slate-200 object-contain" /> : null}

@@ -139,6 +139,7 @@ export default function CalendarPage() {
   const [monthIndex, setMonthIndex] = useState(new Date().getMonth());
   const [year, setYear] = useState(new Date().getFullYear());
   const [familyPeriods, setFamilyPeriods] = useState<FamilyPeriod[]>(defaultFamilyPeriods);
+  const [familyPeriodsError, setFamilyPeriodsError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadReservations() {
@@ -165,13 +166,20 @@ export default function CalendarPage() {
         console.error(error.message);
       }
 
-      const { data: periodData } = await supabase
-        .from('family_periods')
-        .select('id, year, family, label, start_date, end_date, created_at, updated_at')
-        .order('start_date', { ascending: true });
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (sessionError || !accessToken) throw new Error('Reconnectez-vous pour charger les périodes du planning.');
 
-      if (periodData) {
-        setFamilyPeriods(mergeFamilyPeriodsWithDefaults(periodData as FamilyPeriod[]));
+        const response = await fetch('/api/family-periods', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error ?? 'Le planning enregistré n’a pas pu être chargé.');
+        setFamilyPeriods(mergeFamilyPeriodsWithDefaults((result.periods ?? []) as FamilyPeriod[]));
+        setFamilyPeriodsError(null);
+      } catch (error) {
+        setFamilyPeriodsError(error instanceof Error ? error.message : 'Le planning enregistré n’a pas pu être chargé.');
       }
       setLoading(false);
     }
@@ -229,8 +237,7 @@ export default function CalendarPage() {
   const calendarYears = [...new Set([
     new Date().getFullYear(),
     new Date().getFullYear() + 1,
-    2026,
-    2027,
+    ...Array.from({ length: 7 }, (_, index) => 2026 + index),
     ...familyPeriods.map((period) => period.year),
     ...reservations.flatMap((reservation) => [Number(reservation.start_date.slice(0, 4)), Number(reservation.end_date.slice(0, 4))]),
   ])].filter(Number.isFinite).sort((first, second) => first - second);
@@ -264,6 +271,7 @@ export default function CalendarPage() {
 
           <section className="-mx-1 rounded-3xl border border-slate-200 bg-white p-1 shadow-soft sm:mx-0 sm:p-3">
             <div className="mb-4 flex flex-col gap-3">
+              {familyPeriodsError ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{familyPeriodsError}</p> : null}
               <h3 className="text-lg font-semibold capitalize text-slate-900 sm:text-xl">{monthLabel}</h3>
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                 <h4 className="text-sm font-semibold text-slate-900">Légende du calendrier</h4>
