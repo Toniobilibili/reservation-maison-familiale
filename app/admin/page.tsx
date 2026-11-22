@@ -448,6 +448,8 @@ export default function AdminPage() {
     setUserCreateLoading(false);
   }
 
+  const periodYears = [...new Set(periods.map((period) => period.year))].sort((first, second) => second - first);
+
   return (
     <ProtectedPage adminOnly>
       <AppShell title="Espace admin">
@@ -539,7 +541,20 @@ export default function AdminPage() {
             </form>
             {periodMessage ? <p className="mt-3 text-sm text-slate-600">{periodMessage}</p> : null}
             <div className="mt-5 space-y-2">
-              {periods.map((period) => <div key={period.id} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-700"><strong>{period.family}</strong> · {period.label} · {period.start_date} → {period.end_date}</p><div className="flex gap-2"><button type="button" onClick={() => setPeriodForm({ id: period.id, year: String(period.year), family: period.family, label: period.label, start_date: period.start_date, end_date: period.end_date })} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold">Modifier</button><button type="button" onClick={() => deletePeriod(period.id)} className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700">Supprimer</button></div></div>)}
+              {periodYears.map((year) => {
+                const yearPeriods = periods.filter((period) => period.year === year);
+                return (
+                  <details key={year} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800">
+                      <span>{year}</span>
+                      <span className="text-xs font-medium text-slate-500">{yearPeriods.length} période{yearPeriods.length > 1 ? 's' : ''}</span>
+                    </summary>
+                    <div className="space-y-2 border-t border-slate-200 p-3">
+                      {yearPeriods.map((period) => <div key={period.id} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-700"><strong>{period.family}</strong> · {period.label} · {period.start_date} → {period.end_date}</p><div className="flex gap-2"><button type="button" onClick={() => setPeriodForm({ id: period.id, year: String(period.year), family: period.family, label: period.label, start_date: period.start_date, end_date: period.end_date })} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold">Modifier</button><button type="button" onClick={() => deletePeriod(period.id)} className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700">Supprimer</button></div></div>)}
+                    </div>
+                  </details>
+                );
+              })}
             </div>
           </section>
 
