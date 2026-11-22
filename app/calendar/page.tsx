@@ -226,6 +226,14 @@ export default function CalendarPage() {
     month: 'long',
     year: 'numeric',
   });
+  const calendarYears = [...new Set([
+    new Date().getFullYear(),
+    new Date().getFullYear() + 1,
+    2026,
+    2027,
+    ...familyPeriods.map((period) => period.year),
+    ...reservations.flatMap((reservation) => [Number(reservation.start_date.slice(0, 4)), Number(reservation.end_date.slice(0, 4))]),
+  ])].filter(Number.isFinite).sort((first, second) => first - second);
 
   return (
     <ProtectedPage>
@@ -240,6 +248,19 @@ export default function CalendarPage() {
               →
             </button>
           </div>
+          <nav aria-label="Choisir l’année du calendrier" className="flex flex-wrap justify-center gap-2">
+            {calendarYears.map((calendarYear) => (
+              <button
+                key={calendarYear}
+                type="button"
+                aria-pressed={year === calendarYear}
+                onClick={() => setYear(calendarYear)}
+                className={`min-w-20 rounded-xl px-4 py-2 text-sm font-semibold transition ${year === calendarYear ? 'bg-brand-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
+              >
+                {calendarYear}
+              </button>
+            ))}
+          </nav>
 
           <section className="-mx-1 rounded-3xl border border-slate-200 bg-white p-1 shadow-soft sm:mx-0 sm:p-3">
             <div className="mb-4 flex flex-col gap-3">
@@ -326,7 +347,7 @@ export default function CalendarPage() {
                 {weekPeriods.map((period, periodIndex) => {
                   const style = getFamilyStyle(period.family);
                   const position = getBarPosition(period.start_date, period.end_date, week);
-                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg shadow-sm" style={{ ...position, top: `calc(1.6rem + ${periodIndex} * 1.25rem)`, backgroundColor: style.background }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`} />;
+                  return <div key={`period-bar-${weekIndex}-${period.id}`} className="pointer-events-none absolute z-10 overflow-hidden rounded-lg px-1 py-0.5 text-[9px] font-semibold leading-3 shadow-sm sm:text-[10px]" style={{ ...position, top: `calc(1.6rem + ${periodIndex} * 1.25rem)`, backgroundColor: style.background, color: style.text }} title={`${period.family} · ${period.label}`} aria-label={`${period.family} · ${period.label}`}><span className="block truncate">{period.family} · {period.label}</span></div>;
                 })}
                 {weekReservations.map((reservation, reservationIndex) => {
                   const style = getFamilyStyle(reservation.user_family);

@@ -448,7 +448,7 @@ export default function AdminPage() {
     setUserCreateLoading(false);
   }
 
-  const periodYears = [...new Set(periods.map((period) => period.year))].sort((first, second) => second - first);
+  const periodYears = [...new Set([...periods.map((period) => period.year), 2026, 2027])].sort((first, second) => second - first);
 
   return (
     <ProtectedPage adminOnly>
@@ -550,7 +550,7 @@ export default function AdminPage() {
                       <span className="text-xs font-medium text-slate-500">{yearPeriods.length} période{yearPeriods.length > 1 ? 's' : ''}</span>
                     </summary>
                     <div className="space-y-2 border-t border-slate-200 p-3">
-                      {yearPeriods.map((period) => <div key={period.id} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-700"><strong>{period.family}</strong> · {period.label} · {period.start_date} → {period.end_date}</p><div className="flex gap-2"><button type="button" onClick={() => setPeriodForm({ id: period.id, year: String(period.year), family: period.family, label: period.label, start_date: period.start_date, end_date: period.end_date })} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold">Modifier</button><button type="button" onClick={() => deletePeriod(period.id)} className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700">Supprimer</button></div></div>)}
+                      {yearPeriods.length === 0 ? <p className="px-1 py-2 text-sm text-slate-500">Aucune période enregistrée pour {year}.</p> : yearPeriods.map((period) => <div key={period.id} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-700"><strong>{period.family}</strong> · {period.label} · {period.start_date} → {period.end_date}</p><div className="flex gap-2"><button type="button" onClick={() => setPeriodForm({ id: period.id, year: String(period.year), family: period.family, label: period.label, start_date: period.start_date, end_date: period.end_date })} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold">Modifier</button><button type="button" onClick={() => deletePeriod(period.id)} className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700">Supprimer</button></div></div>)}
                     </div>
                   </details>
                 );
@@ -562,7 +562,7 @@ export default function AdminPage() {
             <h2 className="text-lg font-semibold text-slate-900">Importer un planning</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">Importez une image JPEG ou un PDF du programme familial. Le texte est reconnu localement, puis les périodes datées restent modifiables avant leur synchronisation.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr]">
-              <label className="block text-sm font-medium text-slate-700">Année<input type="number" value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
+              <label className="block text-sm font-medium text-slate-700">Année du planning<select value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"><option value="2026">2026</option><option value="2027">2027</option></select></label>
               <label className="block text-sm font-medium text-slate-700">Document (JPEG ou PDF)<input type="file" accept="image/jpeg,image/jpg,application/pdf,.pdf" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
             </div>
             {planningImage ? <Image src={planningImage} alt={`Aperçu du planning ${planningYear}`} width={1200} height={800} unoptimized className="mt-4 max-h-80 w-full rounded-2xl border border-slate-200 object-contain" /> : null}
