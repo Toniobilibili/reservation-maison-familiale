@@ -18,6 +18,14 @@ export const defaultFamilyPeriods: FamilyPeriod[] = [
   { id: '2026-09-26', year: 2026, family: 'PUGNET', label: 'Week-end familial', start_date: '2026-09-26', end_date: '2026-09-27', created_at: '', updated_at: '' },
 ];
 
+export function mergeFamilyPeriodsWithDefaults(periods: FamilyPeriod[]) {
+  const savedYears = new Set(periods.map((period) => period.year));
+  return [
+    ...periods,
+    ...defaultFamilyPeriods.filter((period) => !savedYears.has(period.year)),
+  ].sort((first, second) => first.start_date.localeCompare(second.start_date));
+}
+
 export function getPeriodForDate(periods: FamilyPeriod[], dateKey: string) {
   return periods.find((period) => period.start_date <= dateKey && period.end_date >= dateKey);
 }

@@ -6,7 +6,7 @@ import { ProtectedPage } from '@/components/ProtectedPage';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
 import { families, formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
-import { defaultFamilyPeriods, getPeriodForDate, isPeriodEnd, isPeriodStart } from '@/lib/planning';
+import { defaultFamilyPeriods, getPeriodForDate, isPeriodEnd, isPeriodStart, mergeFamilyPeriodsWithDefaults } from '@/lib/planning';
 import type { FamilyPeriod } from '@/lib/types';
 
 const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -171,7 +171,7 @@ export default function CalendarPage() {
         .order('start_date', { ascending: true });
 
       if (periodData) {
-        setFamilyPeriods(periodData as FamilyPeriod[]);
+        setFamilyPeriods(mergeFamilyPeriodsWithDefaults(periodData as FamilyPeriod[]));
       }
       setLoading(false);
     }
