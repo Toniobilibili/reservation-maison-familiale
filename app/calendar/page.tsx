@@ -6,7 +6,7 @@ import { ProtectedPage } from '@/components/ProtectedPage';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
 import { families, formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
-import { defaultFamilyPeriods, getPeriodForDate, getPlanningYears, isPeriodEnd, isPeriodStart, mergeFamilyPeriodsWithDefaults } from '@/lib/planning';
+import { defaultFamilyPeriods, getPeriodForDate, isPeriodEnd, isPeriodStart, mergeFamilyPeriodsWithDefaults } from '@/lib/planning';
 import type { FamilyPeriod } from '@/lib/types';
 
 const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -231,26 +231,10 @@ export default function CalendarPage() {
     }
   }
 
-  function goToPlanningYear(selectedYear: number) {
-    setYear(selectedYear);
-    const firstPeriod = familyPeriods
-      .filter((period) => period.end_date >= `${selectedYear}-01-01` && period.start_date <= `${selectedYear}-12-31`)
-      .sort((first, second) => first.start_date.localeCompare(second.start_date))[0];
-    const firstVisibleDate = firstPeriod && firstPeriod.start_date.slice(0, 4) === String(selectedYear)
-      ? firstPeriod.start_date
-      : `${selectedYear}-01-01`;
-    setMonthIndex(Number(firstVisibleDate.slice(5, 7)) - 1);
-  }
-
   const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString('fr-FR', {
     month: 'long',
     year: 'numeric',
   });
-  const calendarYears = [...new Set([
-    ...getPlanningYears(),
-    ...familyPeriods.map((period) => period.year),
-    ...reservations.flatMap((reservation) => [Number(reservation.start_date.slice(0, 4)), Number(reservation.end_date.slice(0, 4))]),
-  ])].filter(Number.isFinite).sort((first, second) => first - second);
   const monthStartKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
   const monthEndKey = getDateKey(new Date(year, monthIndex + 1, 0));
   const monthPeriods = familyPeriods
@@ -270,20 +254,6 @@ export default function CalendarPage() {
               →
             </button>
           </div>
-          <nav aria-label="Choisir l’année du calendrier" className="flex flex-wrap justify-center gap-2">
-            {calendarYears.map((calendarYear) => (
-              <button
-                key={calendarYear}
-                type="button"
-                aria-pressed={year === calendarYear}
-                onClick={() => goToPlanningYear(calendarYear)}
-                className={`min-w-20 rounded-xl px-4 py-2 text-sm font-semibold transition ${year === calendarYear ? 'bg-brand-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
-              >
-                {calendarYear}
-              </button>
-            ))}
-          </nav>
-
           <section className="-mx-1 rounded-3xl border border-slate-200 bg-white p-1 shadow-soft sm:mx-0 sm:p-3">
             <div className="mb-4 flex flex-col gap-3">
               {familyPeriodsError ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{familyPeriodsError}</p> : null}
