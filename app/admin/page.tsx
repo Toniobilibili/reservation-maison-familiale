@@ -10,7 +10,7 @@ import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
 import type { FamilyPeriod, PlanningImport } from '@/lib/types';
 import { ReservationCard } from '@/components/ReservationCard';
-import { defaultFamilyPeriods, mergeFamilyPeriodsWithDefaults } from '@/lib/planning';
+import { defaultFamilyPeriods, getPlanningYears, mergeFamilyPeriodsWithDefaults } from '@/lib/planning';
 import { planningNameFamilies } from '@/lib/families';
 
 type OcrPeriod = Omit<FamilyPeriod, 'id' | 'created_at' | 'updated_at'> & { id: string };
@@ -155,7 +155,7 @@ export default function AdminPage() {
   const [periodMessage, setPeriodMessage] = useState<string | null>(null);
   const [planningImage, setPlanningImage] = useState<string | null>(null);
   const [planningFileName, setPlanningFileName] = useState('');
-  const [planningYear, setPlanningYear] = useState('2027');
+  const [planningYear, setPlanningYear] = useState(() => String(new Date().getFullYear() + 1));
   const [planningImports, setPlanningImports] = useState<PlanningImport[]>([]);
   const [ocrPeriods, setOcrPeriods] = useState<OcrPeriod[]>([]);
   const [ocrText, setOcrText] = useState('');
@@ -460,7 +460,8 @@ export default function AdminPage() {
     setUserCreateLoading(false);
   }
 
-  const periodYears = [...new Set([...periods.map((period) => period.year), ...Array.from({ length: 7 }, (_, index) => 2026 + index)])].sort((first, second) => second - first);
+  const periodYears = [...new Set([...periods.map((period) => period.year), ...getPlanningYears()])].sort((first, second) => second - first);
+  const importYears = getPlanningYears(new Date().getFullYear() - 1, 7);
 
   return (
     <ProtectedPage adminOnly>
@@ -574,7 +575,7 @@ export default function AdminPage() {
             <h2 className="text-lg font-semibold text-slate-900">Importer un planning</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">Importez une image JPEG ou un PDF du programme familial. Le texte est reconnu localement, puis les périodes datées restent modifiables avant leur synchronisation.</p>
             <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_2fr]">
-              <label className="block text-sm font-medium text-slate-700">Année du planning<select value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">{Array.from({ length: 7 }, (_, index) => 2026 + index).map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
+              <label className="block text-sm font-medium text-slate-700">Année du planning<select value={planningYear} onChange={(event) => setPlanningYear(event.target.value)} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">{importYears.map((year) => <option key={year} value={year}>{year}</option>)}</select></label>
               <label className="block text-sm font-medium text-slate-700">Document (JPEG ou PDF)<input type="file" accept="image/jpeg,image/jpg,application/pdf,.pdf" onChange={handlePlanningImage} className="mt-2 block w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm" /></label>
             </div>
             {planningImage ? <Image src={planningImage} alt={`Aperçu du planning ${planningYear}`} width={1200} height={800} unoptimized className="mt-4 max-h-80 w-full rounded-2xl border border-slate-200 object-contain" /> : null}

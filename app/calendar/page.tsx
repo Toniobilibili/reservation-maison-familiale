@@ -6,7 +6,7 @@ import { ProtectedPage } from '@/components/ProtectedPage';
 import { supabase } from '@/lib/supabaseClient';
 import type { Reservation } from '@/lib/types';
 import { families, formatDate, getFamilyStyle, getFamilyVisualStyle } from '@/lib/families';
-import { defaultFamilyPeriods, getPeriodForDate, isPeriodEnd, isPeriodStart, mergeFamilyPeriodsWithDefaults } from '@/lib/planning';
+import { defaultFamilyPeriods, getPeriodForDate, getPlanningYears, isPeriodEnd, isPeriodStart, mergeFamilyPeriodsWithDefaults } from '@/lib/planning';
 import type { FamilyPeriod } from '@/lib/types';
 
 const weekdayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
@@ -235,9 +235,7 @@ export default function CalendarPage() {
     year: 'numeric',
   });
   const calendarYears = [...new Set([
-    new Date().getFullYear(),
-    new Date().getFullYear() + 1,
-    ...Array.from({ length: 7 }, (_, index) => 2026 + index),
+    ...getPlanningYears(),
     ...familyPeriods.map((period) => period.year),
     ...reservations.flatMap((reservation) => [Number(reservation.start_date.slice(0, 4)), Number(reservation.end_date.slice(0, 4))]),
   ])].filter(Number.isFinite).sort((first, second) => first - second);
