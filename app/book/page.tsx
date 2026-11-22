@@ -233,6 +233,9 @@ export default function BookPage() {
 
     return map;
   }, [reservations]);
+  const reservationYears = [...new Set(reservations.map((reservation) => Number(reservation.start_date.slice(0, 4))))]
+    .filter(Number.isFinite)
+    .sort((first, second) => second - first);
 
   function startEditing(reservation: Reservation) {
     setEditingId(reservation.id);
@@ -385,12 +388,32 @@ export default function BookPage() {
             <p className="mt-1 text-sm text-slate-600">Les dates validées apparaissent avec la couleur de chaque famille.</p>
             <p className="mt-1 text-sm font-medium text-brand-700">Vous pouvez modifier ou supprimer uniquement vos propres réservations.</p>
           </div>
-          {reservations.length === 0 ? <p className="text-sm text-slate-600">Aucune réservation validée.</p> : reservations.map((reservation) => {
-            const canManage = reservation.user_id === user?.id;
-            return <div key={reservation.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <ReservationCard reservation={reservation} actions={canManage ? editingId === reservation.id ? <form onSubmit={updateReservation} className="grid w-full gap-2 sm:grid-cols-4"><label className="text-xs font-semibold text-slate-600">Arrivée<input type="date" value={editForm.start_date} onChange={(event) => setEditForm({ ...editForm, start_date: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" required /></label><label className="text-xs font-semibold text-slate-600">Départ<input type="date" value={editForm.end_date} onChange={(event) => setEditForm({ ...editForm, end_date: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" required /></label><label className="text-xs font-semibold text-slate-600">Nombre de personnes<input type="number" min={1} max={99} value={editForm.guests} onChange={(event) => setEditForm({ ...editForm, guests: Number(event.target.value) })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" required /></label><label className="text-xs font-semibold text-slate-600">Commentaire<input value={editForm.comment} onChange={(event) => setEditForm({ ...editForm, comment: event.target.value })} placeholder="Commentaire" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" /></label><div className="flex gap-2 sm:col-span-4"><button type="submit" disabled={loading} className="rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Enregistrer</button><button type="button" onClick={() => setEditingId(null)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold">Annuler</button></div></form> : <><button type="button" onClick={() => startEditing(reservation)} className="rounded-xl border border-brand-200 px-3 py-2 text-sm font-semibold text-brand-700">Modifier</button><button type="button" onClick={() => deleteReservation(reservation.id)} disabled={deletingId === reservation.id} className="rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700">{deletingId === reservation.id ? 'Suppression...' : 'Supprimer'}</button></> : <p className="text-xs text-slate-500">Réservation d’un autre membre</p>} />
-            </div>;
-          })}
+          {reservations.length === 0 ? <p className="text-sm text-slate-600">Aucune réservation validée.</p> : (
+            <div className="space-y-3">
+              {reservationYears.map((year) => {
+                const yearReservations = reservations.filter((reservation) => Number(reservation.start_date.slice(0, 4)) === year);
+                return (
+                  <details key={year} open={year === new Date().getFullYear()} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800">
+                      <span>Réservations {year}</span>
+                      <span className="text-xs font-medium text-slate-500">{yearReservations.length} réservation{yearReservations.length > 1 ? 's' : ''}</span>
+                    </summary>
+                    <div className="space-y-3 border-t border-slate-200 p-3">
+                      {yearReservations.map((reservation) => {
+                        const canManage = reservation.user_id === user?.id;
+                        const actions = canManage
+                          ? editingId === reservation.id
+                            ? <form onSubmit={updateReservation} className="grid w-full gap-2 sm:grid-cols-4"><label className="text-xs font-semibold text-slate-600">Arrivée<input type="date" value={editForm.start_date} onChange={(event) => setEditForm({ ...editForm, start_date: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" required /></label><label className="text-xs font-semibold text-slate-600">Départ<input type="date" value={editForm.end_date} onChange={(event) => setEditForm({ ...editForm, end_date: event.target.value })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" required /></label><label className="text-xs font-semibold text-slate-600">Nombre de personnes<input type="number" min={1} max={99} value={editForm.guests} onChange={(event) => setEditForm({ ...editForm, guests: Number(event.target.value) })} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" required /></label><label className="text-xs font-semibold text-slate-600">Commentaire<input value={editForm.comment} onChange={(event) => setEditForm({ ...editForm, comment: event.target.value })} placeholder="Commentaire" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm" /></label><div className="flex gap-2 sm:col-span-4"><button type="submit" disabled={loading} className="rounded-xl bg-brand-600 px-3 py-2 text-sm font-semibold text-white">Enregistrer</button><button type="button" onClick={() => setEditingId(null)} className="rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold">Annuler</button></div></form>
+                            : <><button type="button" onClick={() => startEditing(reservation)} className="rounded-xl border border-brand-200 px-3 py-2 text-sm font-semibold text-brand-700">Modifier</button><button type="button" onClick={() => deleteReservation(reservation.id)} disabled={deletingId === reservation.id} className="rounded-xl border border-rose-200 px-3 py-2 text-sm font-semibold text-rose-700">{deletingId === reservation.id ? 'Suppression...' : 'Supprimer'}</button></>
+                          : <p className="text-xs text-slate-500">Réservation d’un autre membre</p>;
+                        return <div key={reservation.id} className="rounded-2xl border border-slate-200 bg-white p-3"><ReservationCard reservation={reservation} actions={actions} /></div>;
+                      })}
+                    </div>
+                  </details>
+                );
+              })}
+            </div>
+          )}
         </section>
       </AppShell>
     </ProtectedPage>
