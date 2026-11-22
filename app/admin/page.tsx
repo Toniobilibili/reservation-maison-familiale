@@ -332,23 +332,29 @@ export default function AdminPage() {
         return;
       }
 
-      const { data, error } = await supabase.from('planning_imports').insert({
-        year: Number(planningYear),
-        file_name: planningFileName,
-        image_url: planningImage,
-        status: extractedPeriods.length > 0 ? 'validated' : 'draft',
-        extracted_periods: extractedPeriods,
-        created_by: user.id,
-      }).select('id, year, file_name, image_url, status, extracted_periods, created_by, created_at').single();
-      if (error) throw new Error(`Échec de l’enregistrement de l’import : ${error.message}`);
-      if (data) setPlanningImports((current) => [data as PlanningImport, ...current]);
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) throw new Error('Session administrateur expirée. Reconnectez-vous puis réessayez.');
 
-      if (extractedPeriods.length > 0) {
-        const { error: deleteError } = await supabase.from('family_periods').delete().eq('year', Number(planningYear));
-        if (deleteError) throw new Error(`Import enregistré, mais impossible de remplacer les périodes : ${deleteError.message}`);
-        const { data: syncedPeriods, error: syncError } = await supabase.from('family_periods').insert(extractedPeriods).select('id, year, family, label, start_date, end_date, created_at, updated_at');
-        if (syncError) throw new Error(`Import enregistré, mais la synchronisation a échoué : ${syncError.message}`);
-        if (syncedPeriods) setPeriods((current) => [...current.filter((period) => period.year !== Number(planningYear)), ...(syncedPeriods as FamilyPeriod[])]);
+      const response = await fetch('/api/admin/planning-import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          year: Number(planningYear),
+          fileName: planningFileName,
+          imageUrl: planningImage,
+          extractedPeriods,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? `Le serveur a refusé l’enregistrement (${response.status}).`);
+
+      if (result.planningImport) setPlanningImports((current) => [result.planningImport as PlanningImport, ...current]);
+      if (Array.isArray(result.periods) && result.periods.length > 0) {
+        setPeriods((current) => [...current.filter((period) => period.year !== Number(planningYear)), ...(result.periods as FamilyPeriod[])]);
       }
       setPlanningSaveMessage(extractedPeriods.length > 0
         ? 'Planning enregistré et synchronisé.'
