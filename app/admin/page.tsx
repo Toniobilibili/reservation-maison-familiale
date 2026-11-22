@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { createWorker } from 'tesseract.js';
 import { AppShell } from '@/components/AppShell';
@@ -153,6 +153,8 @@ export default function AdminPage() {
   const [periods, setPeriods] = useState<FamilyPeriod[]>(defaultFamilyPeriods);
   const [periodForm, setPeriodForm] = useState({ id: '', year: '2026', family: 'PUGNET', label: '', start_date: '', end_date: '' });
   const [periodMessage, setPeriodMessage] = useState<string | null>(null);
+  const periodFormRef = useRef<HTMLFormElement>(null);
+  const periodLabelRef = useRef<HTMLInputElement>(null);
   const [planningImage, setPlanningImage] = useState<string | null>(null);
   const [planningFileName, setPlanningFileName] = useState('');
   const [planningYear, setPlanningYear] = useState(() => String(new Date().getFullYear() + 1));
@@ -252,6 +254,15 @@ export default function AdminPage() {
     } catch (error) {
       setPeriodMessage(error instanceof Error ? error.message : 'Impossible de supprimer la période.');
     }
+  }
+
+  function startEditingPeriod(period: FamilyPeriod) {
+    setPeriodForm({ id: period.id, year: String(period.year), family: period.family, label: period.label, start_date: period.start_date, end_date: period.end_date });
+    setPeriodMessage(`Modification de « ${period.label} » : modifiez les champs du formulaire puis enregistrez.`);
+    window.requestAnimationFrame(() => {
+      periodFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      periodLabelRef.current?.focus({ preventScroll: true });
+    });
   }
 
   async function handlePlanningImage(event: React.ChangeEvent<HTMLInputElement>) {
@@ -563,10 +574,11 @@ export default function AdminPage() {
           <section id="family-periods" className="scroll-mt-4 rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
             <h2 className="text-lg font-semibold text-slate-900">Souhaits des familles</h2>
             <p className="mt-2 text-sm leading-6 text-slate-600">Ajoutez ou corrigez les périodes souhaitées par une famille. Ces périodes ne créent pas de réservation individuelle.</p>
-            <form onSubmit={savePeriod} className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {periodForm.id ? <p className="mt-4 rounded-xl bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-800">Modification en cours · changez les dates ou le libellé, puis cliquez sur « Modifier » pour enregistrer.</p> : null}
+            <form ref={periodFormRef} onSubmit={savePeriod} className={`mt-5 grid gap-4 rounded-2xl p-2 sm:grid-cols-2 lg:grid-cols-3 ${periodForm.id ? 'border-2 border-indigo-200 bg-indigo-50/50' : ''}`}>
               <label className="block text-sm font-medium text-slate-700">Année<input type="number" value={periodForm.year} onChange={(event) => setPeriodForm({ ...periodForm, year: event.target.value })} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <label className="block text-sm font-medium text-slate-700">Famille<select value={periodForm.family} onChange={(event) => setPeriodForm({ ...periodForm, family: event.target.value })} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"><option>PUGNET</option><option>PLAGNOL</option><option>NGUYEN</option><option>BRETEAU</option></select></label>
-              <label className="block text-sm font-medium text-slate-700">Libellé<input required value={periodForm.label} onChange={(event) => setPeriodForm({ ...periodForm, label: event.target.value })} placeholder="Vacances été" className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
+              <label className="block text-sm font-medium text-slate-700">Libellé<input ref={periodLabelRef} required value={periodForm.label} onChange={(event) => setPeriodForm({ ...periodForm, label: event.target.value })} placeholder="Vacances été" className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <label className="block text-sm font-medium text-slate-700">Début<input required type="date" value={periodForm.start_date} onChange={(event) => setPeriodForm({ ...periodForm, start_date: event.target.value })} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <label className="block text-sm font-medium text-slate-700">Fin<input required type="date" value={periodForm.end_date} onChange={(event) => setPeriodForm({ ...periodForm, end_date: event.target.value })} className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3" /></label>
               <div className="flex items-end gap-2"><button type="submit" className="min-h-11 rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white">{periodForm.id ? 'Modifier' : 'Ajouter'}</button>{periodForm.id ? <button type="button" onClick={() => setPeriodForm({ id: '', year: periodForm.year, family: periodForm.family, label: '', start_date: '', end_date: '' })} className="min-h-11 rounded-2xl border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">Annuler</button> : null}</div>
@@ -582,7 +594,7 @@ export default function AdminPage() {
                       <span className="text-xs font-medium text-slate-500">{yearPeriods.length} période{yearPeriods.length > 1 ? 's' : ''}</span>
                     </summary>
                     <div className="space-y-2 border-t border-slate-200 p-3">
-                      {yearPeriods.length === 0 ? <p className="px-1 py-2 text-sm text-slate-500">Aucune période enregistrée pour {year}.</p> : yearPeriods.map((period) => <div key={period.id} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-700"><strong>{period.family}</strong> · {period.label} · {period.start_date} → {period.end_date}</p><div className="flex gap-2"><button type="button" onClick={() => setPeriodForm({ id: period.id, year: String(period.year), family: period.family, label: period.label, start_date: period.start_date, end_date: period.end_date })} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold">Modifier</button><button type="button" onClick={() => deletePeriod(period.id)} className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700">Supprimer</button></div></div>)}
+                      {yearPeriods.length === 0 ? <p className="px-1 py-2 text-sm text-slate-500">Aucune période enregistrée pour {year}.</p> : yearPeriods.map((period) => <div key={period.id} className="flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-slate-700"><strong>{period.family}</strong> · {period.label} · {period.start_date} → {period.end_date}</p><div className="flex gap-2"><button type="button" onClick={() => startEditingPeriod(period)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold">Modifier</button><button type="button" onClick={() => deletePeriod(period.id)} className="rounded-xl border border-rose-200 px-3 py-2 text-xs font-semibold text-rose-700">Supprimer</button></div></div>)}
                     </div>
                   </details>
                 );
