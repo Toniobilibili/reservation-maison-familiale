@@ -104,23 +104,23 @@ function holidaysForYear(year: number) {
   } as Record<string, string>;
 }
 
-const zoneBVacations: Array<{ start: string; end: string; label: string }> = [
-  { start: '2025-10-18', end: '2025-11-03', label: 'Vacances de la Toussaint · Zone B' },
-  { start: '2025-12-20', end: '2026-01-05', label: 'Vacances de Noël · Zone B' },
-  { start: '2026-02-14', end: '2026-03-02', label: "Vacances d'hiver · Zone B" },
-  { start: '2026-04-11', end: '2026-04-27', label: 'Vacances de printemps · Zone B' },
-  { start: '2026-07-04', end: '2026-09-01', label: "Vacances d'été · Zone B" },
-  { start: '2026-10-17', end: '2026-11-02', label: 'Vacances de la Toussaint · Zone B' },
-  { start: '2026-12-19', end: '2027-01-04', label: 'Vacances de Noël · Zone B' },
-  { start: '2027-02-20', end: '2027-03-08', label: "Vacances d'hiver · Zone B" },
-  { start: '2027-04-17', end: '2027-05-03', label: 'Vacances de printemps · Zone B' },
-  { start: '2027-07-03', end: '2027-09-01', label: "Vacances d'été · Zone B" },
+const zoneCVacations: Array<{ start: string; end: string; label: string }> = [
+  { start: '2025-10-18', end: '2025-11-03', label: 'Vacances de la Toussaint · Zone C' },
+  { start: '2025-12-20', end: '2026-01-05', label: 'Vacances de Noël · Zone C' },
+  { start: '2026-02-21', end: '2026-03-09', label: "Vacances d'hiver · Zone C" },
+  { start: '2026-04-18', end: '2026-05-04', label: 'Vacances de printemps · Zone C' },
+  { start: '2026-07-04', end: '2026-09-01', label: "Vacances d'été · Zone C" },
+  { start: '2026-10-17', end: '2026-11-02', label: 'Vacances de la Toussaint · Zone C' },
+  { start: '2026-12-19', end: '2027-01-04', label: 'Vacances de Noël · Zone C' },
+  { start: '2027-02-06', end: '2027-02-22', label: "Vacances d'hiver · Zone C" },
+  { start: '2027-04-03', end: '2027-04-19', label: 'Vacances de printemps · Zone C' },
+  { start: '2027-07-03', end: '2027-09-01', label: "Vacances d'été · Zone C" },
 ];
 
 function schoolVacationsForYear(year: number) {
   const vacations: Record<string, string> = {};
 
-  zoneBVacations.forEach(({ start, end, label }) => {
+  zoneCVacations.forEach(({ start, end, label }) => {
     const current = parseDateKey(start);
     const last = parseDateKey(end);
 
@@ -254,7 +254,7 @@ export default function CalendarPage() {
                   Les encadrés indiquent les périodes du planning familial.
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-emerald-700">
-                  <span className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5">Vacances scolaires - zone B</span>
+                  <span className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5">Vacances scolaires - zone C</span>
                   <span className="rounded-xl border-2 border-emerald-300 bg-emerald-50 px-3 py-1.5">Jours fériés</span>
                   <span className="text-slate-500">Les jours concernés sont marqués en vert.</span>
                 </div>
