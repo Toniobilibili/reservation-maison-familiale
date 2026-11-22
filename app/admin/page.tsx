@@ -162,6 +162,9 @@ export default function AdminPage() {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrProgress, setOcrProgress] = useState(0);
   const [ocrError, setOcrError] = useState<string | null>(null);
+  const [planningSaveLoading, setPlanningSaveLoading] = useState(false);
+  const [planningSaveMessage, setPlanningSaveMessage] = useState<string | null>(null);
+  const [planningSaveError, setPlanningSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadAll() {
@@ -230,6 +233,8 @@ export default function AdminPage() {
     setOcrPeriods([]);
     setOcrText('');
     setOcrError(null);
+    setPlanningSaveMessage(null);
+    setPlanningSaveError(null);
     setOcrLoading(true);
     setOcrProgress(0);
     try {
@@ -305,31 +310,55 @@ export default function AdminPage() {
   }
 
   async function savePlanningImport() {
-    if (!planningImage || !planningFileName || !user) return;
-    const extractedPeriods = (ocrPeriods.length > 0 ? ocrPeriods : periods
-      .filter((period) => period.year === Number(planningYear) && !period.id.startsWith(String(planningYear))))
-      .map(({ id, ...period }) => period);
-    const { data, error } = await supabase.from('planning_imports').insert({
-      year: Number(planningYear),
-      file_name: planningFileName,
-      image_url: planningImage,
-      status: extractedPeriods.length > 0 ? 'validated' : 'draft',
-      extracted_periods: extractedPeriods,
-      created_by: user.id,
-    }).select('id, year, file_name, image_url, status, extracted_periods, created_by, created_at').single();
-    if (data) setPlanningImports((current) => [data as PlanningImport, ...current]);
-    if (!error && extractedPeriods.length > 0) {
-      const { error: deleteError } = await supabase.from('family_periods').delete().eq('year', Number(planningYear));
-      const { data: syncedPeriods, error: syncError } = deleteError
-        ? { data: null, error: deleteError }
-        : await supabase.from('family_periods').insert(extractedPeriods).select('id, year, family, label, start_date, end_date, created_at, updated_at');
-      if (syncError) {
-        setPeriodMessage(syncError.message);
+    setPlanningSaveMessage(null);
+    setPlanningSaveError(null);
+    if (!planningImage || !planningFileName) {
+      setPlanningSaveError('Choisissez un document et attendez la fin de sa lecture.');
+      return;
+    }
+    if (!user) {
+      setPlanningSaveError('La session administrateur est introuvable. Reconnectez-vous puis réessayez.');
+      return;
+    }
+
+    setPlanningSaveLoading(true);
+    try {
+      const extractedPeriods = (ocrPeriods.length > 0 ? ocrPeriods : periods
+        .filter((period) => period.year === Number(planningYear) && !period.id.startsWith(String(planningYear))))
+        .map(({ id, ...period }) => period);
+      const invalidPeriod = extractedPeriods.find((period) => !period.family || !period.start_date || !period.end_date || period.end_date < period.start_date);
+      if (invalidPeriod) {
+        setPlanningSaveError(`Vérifiez la famille et les dates de « ${invalidPeriod.label} » avant l’enregistrement.`);
         return;
       }
-      if (syncedPeriods) setPeriods((current) => [...current.filter((period) => period.year !== Number(planningYear)), ...(syncedPeriods as FamilyPeriod[])]);
+
+      const { data, error } = await supabase.from('planning_imports').insert({
+        year: Number(planningYear),
+        file_name: planningFileName,
+        image_url: planningImage,
+        status: extractedPeriods.length > 0 ? 'validated' : 'draft',
+        extracted_periods: extractedPeriods,
+        created_by: user.id,
+      }).select('id, year, file_name, image_url, status, extracted_periods, created_by, created_at').single();
+      if (error) throw new Error(`Échec de l’enregistrement de l’import : ${error.message}`);
+      if (data) setPlanningImports((current) => [data as PlanningImport, ...current]);
+
+      if (extractedPeriods.length > 0) {
+        const { error: deleteError } = await supabase.from('family_periods').delete().eq('year', Number(planningYear));
+        if (deleteError) throw new Error(`Import enregistré, mais impossible de remplacer les périodes : ${deleteError.message}`);
+        const { data: syncedPeriods, error: syncError } = await supabase.from('family_periods').insert(extractedPeriods).select('id, year, family, label, start_date, end_date, created_at, updated_at');
+        if (syncError) throw new Error(`Import enregistré, mais la synchronisation a échoué : ${syncError.message}`);
+        if (syncedPeriods) setPeriods((current) => [...current.filter((period) => period.year !== Number(planningYear)), ...(syncedPeriods as FamilyPeriod[])]);
+      }
+      setPlanningSaveMessage(extractedPeriods.length > 0
+        ? 'Planning enregistré et synchronisé.'
+        : 'Import enregistré en brouillon. Ajoutez les périodes dans le planning avant de synchroniser.');
+    } catch (error) {
+      console.error('Échec de l’enregistrement du planning', error);
+      setPlanningSaveError(error instanceof Error ? error.message : 'Une erreur inattendue a empêché l’enregistrement.');
+    } finally {
+      setPlanningSaveLoading(false);
     }
-    setPeriodMessage(error ? error.message : extractedPeriods.length > 0 ? 'Import enregistré et planning synchronisé automatiquement.' : 'Import enregistré en brouillon. Ajoutez les périodes dans le planning avant de synchroniser le calendrier.');
   }
 
   async function removeReservation(id: string) {
@@ -520,7 +549,9 @@ export default function AdminPage() {
             {ocrError ? <p className="mt-4 text-sm text-rose-600">{ocrError}</p> : null}
             {ocrText ? <details className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3"><summary className="cursor-pointer text-sm font-semibold text-slate-700">Afficher le texte détecté</summary><pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap text-xs text-slate-600">{ocrText}</pre></details> : null}
             {ocrPeriods.length > 0 ? <div className="mt-4 space-y-3"><h3 className="text-sm font-semibold text-slate-900">Périodes détectées à vérifier</h3><p className="text-xs leading-5 text-slate-600">Les prénoms identifiés sont associés à leur famille selon la liste enregistrée des occupants. Vérifiez ou corrigez cette proposition avant l’enregistrement. Pour 2027, Noël, l’hiver et le printemps sont complétés selon le calendrier officiel de la zone C ; les autres périodes sans dates restent exclues.</p>{ocrPeriods.map((period, index) => <div key={period.id} className="grid gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:grid-cols-4"><select aria-label="Famille détectée" value={period.family} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, family: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm">{['PUGNET', 'PLAGNOL', 'NGUYEN', 'BRETEAU'].map((family) => <option key={family} value={family}>{family}</option>)}</select><input aria-label="Libellé détecté" value={period.label} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" placeholder="Libellé" /><input aria-label="Date de début détectée" type="date" value={period.start_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, start_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /><input aria-label="Date de fin détectée" type="date" value={period.end_date} onChange={(event) => setOcrPeriods((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, end_date: event.target.value } : item))} className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-sm" /></div>)}</div> : null}
-            <button type="button" onClick={savePlanningImport} disabled={!planningImage || ocrLoading} className="mt-4 min-h-11 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Enregistrer le planning détecté</button>
+            <button type="button" onClick={savePlanningImport} disabled={!planningImage || ocrLoading || planningSaveLoading} className="mt-4 min-h-11 rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">{planningSaveLoading ? 'Enregistrement en cours…' : 'Enregistrer le planning détecté'}</button>
+            {planningSaveError ? <p role="alert" className="mt-3 rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{planningSaveError}</p> : null}
+            {planningSaveMessage ? <p role="status" className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{planningSaveMessage}</p> : null}
             {planningImports.length > 0 ? <div className="mt-5 space-y-2"><h3 className="text-sm font-semibold text-slate-900">Historique des imports</h3>{planningImports.map((planningImport) => <div key={planningImport.id} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"><span>{planningImport.year} · {planningImport.file_name}</span><span className="font-semibold">{planningImport.status === 'validated' ? 'Validé' : 'Brouillon'}</span></div>)}</div> : null}
           </section>
 
