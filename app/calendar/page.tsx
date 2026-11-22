@@ -168,16 +168,15 @@ export default function CalendarPage() {
       const { data: periodData } = await supabase
         .from('family_periods')
         .select('id, year, family, label, start_date, end_date, created_at, updated_at')
-        .eq('year', year)
         .order('start_date', { ascending: true });
 
-      if (periodData && periodData.length > 0) {
+      if (periodData) {
         setFamilyPeriods(periodData as FamilyPeriod[]);
       }
       setLoading(false);
     }
     loadReservations();
-  }, [year]);
+  }, []);
 
   const holidays = useMemo(() => holidaysForYear(year), [year]);
   const schoolVacations = useMemo(() => schoolVacationsForYear(year), [year]);

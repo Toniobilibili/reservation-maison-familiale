@@ -186,7 +186,7 @@ export default function AdminPage() {
         console.error(error.message);
       }
       const { data: periodData } = await supabase.from('family_periods').select('id, year, family, label, start_date, end_date, created_at, updated_at').order('start_date', { ascending: true });
-      if (periodData && periodData.length > 0) setPeriods(periodData as FamilyPeriod[]);
+      if (periodData) setPeriods(periodData as FamilyPeriod[]);
       const { data: importData } = await supabase.from('planning_imports').select('id, year, file_name, image_url, status, extracted_periods, created_by, created_at').order('created_at', { ascending: false });
       if (importData) setPlanningImports(importData as PlanningImport[]);
       setLoading(false);
