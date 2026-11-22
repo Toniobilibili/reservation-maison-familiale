@@ -479,8 +479,8 @@ export default function AdminPage() {
     setUserCreateLoading(false);
   }
 
-  const periodYears = [...new Set([...periods.map((period) => period.year), ...getPlanningYears()])].sort((first, second) => second - first);
-  const importYears = getPlanningYears(new Date().getFullYear() - 1, 7);
+  const periodYears = getPlanningYears().sort((first, second) => second - first);
+  const importYears = getPlanningYears();
 
   return (
     <ProtectedPage adminOnly>

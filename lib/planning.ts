@@ -18,7 +18,7 @@ export const defaultFamilyPeriods: FamilyPeriod[] = [
   { id: '2026-09-26', year: 2026, family: 'PUGNET', label: 'Week-end familial', start_date: '2026-09-26', end_date: '2026-09-27', created_at: '', updated_at: '' },
 ];
 
-export function getPlanningYears(startYear = new Date().getFullYear(), yearsAhead = 6) {
+export function getPlanningYears(startYear = new Date().getFullYear(), yearsAhead = 1) {
   return Array.from({ length: yearsAhead + 1 }, (_, index) => startYear + index);
 }
 
