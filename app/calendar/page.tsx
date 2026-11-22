@@ -254,6 +254,11 @@ export default function CalendarPage() {
               →
             </button>
           </div>
+          <div className="flex justify-center">
+            <span aria-label={`Année affichée : ${year}`} className="rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-semibold text-slate-700 shadow-sm">
+              {year}
+            </span>
+          </div>
           <section className="-mx-1 rounded-3xl border border-slate-200 bg-white p-1 shadow-soft sm:mx-0 sm:p-3">
             <div className="mb-4 flex flex-col gap-3">
               {familyPeriodsError ? <p role="alert" className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700">{familyPeriodsError}</p> : null}
