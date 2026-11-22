@@ -517,6 +517,9 @@ export default function AdminPage() {
   }
 
   const periodYears = getPlanningYears().sort((first, second) => second - first);
+  const reservationYears = [...new Set(reservations.map((reservation) => Number(reservation.start_date.slice(0, 4))))]
+    .filter(Number.isFinite)
+    .sort((first, second) => second - first);
   const importYears = getPlanningYears();
 
   return (
@@ -690,23 +693,36 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {reservations.map((reservation) => (
-                <div key={reservation.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-3 shadow-soft sm:p-4">
-                  <ReservationCard
-                    reservation={reservation}
-                    actions={(
-                      <button
-                        type="button"
-                        onClick={() => removeReservation(reservation.id)}
-                        disabled={actionLoading === reservation.id || actionLoading === 'all'}
-                        className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
-                      >
-                        Supprimer
-                      </button>
-                    )}
-                  />
-                </div>
-              ))}
+              {reservationYears.map((year) => {
+                const yearReservations = reservations.filter((reservation) => Number(reservation.start_date.slice(0, 4)) === year);
+                return (
+                  <details key={year} open={year === new Date().getFullYear()} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-soft">
+                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-base font-semibold text-slate-900 sm:px-5">
+                      <span>Réservations {year}</span>
+                      <span className="text-sm font-medium text-slate-500">{yearReservations.length} réservation{yearReservations.length > 1 ? 's' : ''}</span>
+                    </summary>
+                    <div className="space-y-4 border-t border-slate-200 bg-slate-50 p-3 sm:p-4">
+                      {yearReservations.map((reservation) => (
+                        <div key={reservation.id} className="rounded-3xl border border-slate-200 bg-white p-3 shadow-soft sm:p-4">
+                          <ReservationCard
+                            reservation={reservation}
+                            actions={(
+                              <button
+                                type="button"
+                                onClick={() => removeReservation(reservation.id)}
+                                disabled={actionLoading === reservation.id || actionLoading === 'all'}
+                                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:opacity-60"
+                              >
+                                Supprimer
+                              </button>
+                            )}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </details>
+                );
+              })}
             </div>
           )}
         </div>
