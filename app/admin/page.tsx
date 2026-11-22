@@ -207,32 +207,51 @@ export default function AdminPage() {
     event.preventDefault();
     setPeriodMessage(null);
     const payload = { year: Number(periodForm.year), family: periodForm.family, label: periodForm.label, start_date: periodForm.start_date, end_date: periodForm.end_date };
-    const query = periodForm.id && !periodForm.id.startsWith('2026-')
-      ? supabase.from('family_periods').update(payload).eq('id', periodForm.id)
-      : supabase.from('family_periods').insert(payload).select().single();
-    const { data, error } = await query;
-    if (error) {
-      setPeriodMessage(error.message);
-      return;
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) throw new Error('Session administrateur expirée. Reconnectez-vous puis réessayez.');
+      const isSavedPeriod = periodForm.id && !defaultFamilyPeriods.some((period) => period.id === periodForm.id);
+      const response = await fetch('/api/admin/family-periods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ action: 'save', ...(isSavedPeriod ? { id: periodForm.id } : {}), ...payload }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? 'Impossible d’enregistrer la période.');
+      const saved = result.period as FamilyPeriod;
+      setPeriods((current) => mergeFamilyPeriodsWithDefaults([
+        ...current.filter((period) => period.id !== periodForm.id),
+        saved,
+      ]));
+      setPeriodForm({ id: '', year: periodForm.year, family: periodForm.family, label: '', start_date: '', end_date: '' });
+      setPeriodMessage('Période enregistrée.');
+    } catch (error) {
+      setPeriodMessage(error instanceof Error ? error.message : 'Impossible d’enregistrer la période.');
     }
-    const saved = (periodForm.id && !periodForm.id.startsWith('2026-') ? { ...payload, id: periodForm.id } : data) as FamilyPeriod;
-    setPeriods((current) => periodForm.id && !periodForm.id.startsWith('2026-') ? current.map((period) => period.id === periodForm.id ? { ...period, ...saved } : period) : [...current, saved]);
-    setPeriodForm({ id: '', year: periodForm.year, family: periodForm.family, label: '', start_date: '', end_date: '' });
-    setPeriodMessage('Période enregistrée.');
   }
 
   async function deletePeriod(id: string) {
     if (!window.confirm('Supprimer cette période ?')) return;
-    if (id.startsWith('2026-')) {
+    if (defaultFamilyPeriods.some((period) => period.id === id)) {
       setPeriods((current) => current.filter((period) => period.id !== id));
       return;
     }
-    const { error } = await supabase.from('family_periods').delete().eq('id', id);
-    if (error) {
-      setPeriodMessage(error.message);
-      return;
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) throw new Error('Session administrateur expirée. Reconnectez-vous puis réessayez.');
+      const response = await fetch('/api/admin/family-periods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ action: 'delete', id }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error ?? 'Impossible de supprimer la période.');
+      setPeriods((current) => current.filter((period) => period.id !== id));
+    } catch (error) {
+      setPeriodMessage(error instanceof Error ? error.message : 'Impossible de supprimer la période.');
     }
-    setPeriods((current) => current.filter((period) => period.id !== id));
   }
 
   async function handlePlanningImage(event: React.ChangeEvent<HTMLInputElement>) {
