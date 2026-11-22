@@ -26,8 +26,10 @@ export async function POST(request: NextRequest) {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   const token = request.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
-  if (!supabaseUrl || !anonKey || !serviceRoleKey) return jsonError('Configuration Supabase incomplète côté serveur.', 500);
   if (!token) return jsonError('Session administrateur introuvable. Reconnectez-vous.', 401);
+  if (!supabaseUrl) return jsonError('Variable NEXT_PUBLIC_SUPABASE_URL absente côté serveur.', 500);
+  if (!anonKey) return jsonError('Variable NEXT_PUBLIC_SUPABASE_ANON_KEY absente côté serveur.', 500);
+  if (!serviceRoleKey) return jsonError('Variable SUPABASE_SERVICE_ROLE_KEY absente dans l’environnement Vercel de ce déploiement.', 500);
 
   let body: { year?: number; fileName?: string; imageUrl?: string; extractedPeriods?: PeriodInput[] };
   try {
