@@ -172,6 +172,7 @@ export default function CalendarPage() {
         if (sessionError || !accessToken) throw new Error('Reconnectez-vous pour charger les périodes du planning.');
 
         const response = await fetch('/api/family-periods', {
+          cache: 'no-store',
           headers: { Authorization: `Bearer ${accessToken}` },
         });
         const result = await response.json().catch(() => ({}));
@@ -230,6 +231,17 @@ export default function CalendarPage() {
     }
   }
 
+  function goToPlanningYear(selectedYear: number) {
+    setYear(selectedYear);
+    const firstPeriod = familyPeriods
+      .filter((period) => period.end_date >= `${selectedYear}-01-01` && period.start_date <= `${selectedYear}-12-31`)
+      .sort((first, second) => first.start_date.localeCompare(second.start_date))[0];
+    const firstVisibleDate = firstPeriod && firstPeriod.start_date.slice(0, 4) === String(selectedYear)
+      ? firstPeriod.start_date
+      : `${selectedYear}-01-01`;
+    setMonthIndex(Number(firstVisibleDate.slice(5, 7)) - 1);
+  }
+
   const monthLabel = new Date(year, monthIndex, 1).toLocaleDateString('fr-FR', {
     month: 'long',
     year: 'numeric',
@@ -239,6 +251,11 @@ export default function CalendarPage() {
     ...familyPeriods.map((period) => period.year),
     ...reservations.flatMap((reservation) => [Number(reservation.start_date.slice(0, 4)), Number(reservation.end_date.slice(0, 4))]),
   ])].filter(Number.isFinite).sort((first, second) => first - second);
+  const monthStartKey = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+  const monthEndKey = getDateKey(new Date(year, monthIndex + 1, 0));
+  const monthPeriods = familyPeriods
+    .filter((period) => period.start_date <= monthEndKey && period.end_date >= monthStartKey)
+    .sort((first, second) => first.start_date.localeCompare(second.start_date));
 
   return (
     <ProtectedPage>
@@ -259,7 +276,7 @@ export default function CalendarPage() {
                 key={calendarYear}
                 type="button"
                 aria-pressed={year === calendarYear}
-                onClick={() => setYear(calendarYear)}
+                onClick={() => goToPlanningYear(calendarYear)}
                 className={`min-w-20 rounded-xl px-4 py-2 text-sm font-semibold transition ${year === calendarYear ? 'bg-brand-600 text-white shadow-sm' : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-50'}`}
               >
                 {calendarYear}
@@ -364,6 +381,25 @@ export default function CalendarPage() {
                 </div>;
               })}
             </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-soft sm:p-5">
+            <h3 className="text-base font-semibold text-slate-900">Périodes du planning · {monthLabel}</h3>
+            {monthPeriods.length === 0 ? (
+              <p className="mt-2 text-sm text-slate-600">Aucune période prévue ce mois-ci. Utilisez les flèches pour parcourir les autres mois.</p>
+            ) : (
+              <ul className="mt-3 space-y-2">
+                {monthPeriods.map((period) => {
+                  const style = getFamilyStyle(period.family);
+                  return (
+                    <li key={`month-period-${period.id}`} className="flex flex-col gap-1 rounded-2xl border px-3 py-2 sm:flex-row sm:items-center sm:justify-between" style={{ backgroundColor: style.background, borderColor: style.border, color: style.text }}>
+                      <span className="text-sm font-semibold">{period.family} · {period.label}</span>
+                      <span className="text-sm">{formatDate(period.start_date)} → {formatDate(period.end_date)}</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </section>
 
         </div>

@@ -29,5 +29,8 @@ export async function GET(request: NextRequest) {
     .order('start_date', { ascending: true });
 
   if (error) return NextResponse.json({ error: `Impossible de charger le planning : ${error.message}` }, { status: 500 });
-  return NextResponse.json({ periods: data ?? [] });
+  return NextResponse.json(
+    { periods: data ?? [] },
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+  );
 }
